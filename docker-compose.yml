@@ -7,7 +7,7 @@ services:
     # volumes:
     #   - ./app:/app
     environment:
-      - HOST_ADDR=host.docker.internal
+      - SOCKS_HOST=172.17.0.1
     cap_add:
       - NET_ADMIN
     networks:

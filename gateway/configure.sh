@@ -9,7 +9,7 @@
 
 SOCKS_PORT=8899
 # SOCKS_HOST=$(getent ahosts pi4.local.pomelo.pink | awk '{ print $1 ; exit }')
-SOCKS_HOST=$HOST_ADDR
+SOCKS_HOST=$SOCKS_HOST
 REDSOCKS_TCP_PORT=$(expr $SOCKS_PORT + 1)
 REDSOCKS_UDP_PORT=9999
 TMP=/tmp/subnetproxy ; mkdir -p $TMP
@@ -56,7 +56,7 @@ redsocks {
   type = socks5;
 }
 redudp {
-	bind = "127.0.0.1:$REDSOCKS_UDP_PORT";
+	bind = "172.18.0.3:$REDSOCKS_UDP_PORT";
 	relay = "$SOCKS_HOST:$SOCKS_PORT";
 	type = socks5;
 	udp_timeout = 30;
@@ -71,7 +71,7 @@ EOF
 # start redsocks
 ########################################################################
 
-$SUDO_COMMAND redsocks -c $REDSOCKS_CONF -p /dev/null
+$SUDO_COMMAND redsocks2 -c $REDSOCKS_CONF -p /dev/null
 
 ########################################################################
 # proxy iptables setup
@@ -108,6 +108,8 @@ $SUDO_COMMAND iptables -A INPUT -i $SUBNET_INTERFACE -p tcp --dport $REDSOCKS_TC
 
 
 # UDP routing
-# $SUDO_COMMAND iptables -t nat -A PREROUTING -i $SUBNET_INTERFACE -p udp -j REDSOCKS
-# $SUDO_COMMAND iptables -t nat -A REDSOCKS -p udp -j REDIRECT --to-ports $REDSOCKS_UDP_PORT
-# $SUDO_COMMAND iptables -A INPUT -i $SUBNET_INTERFACE -p udp --dport $REDSOCKS_UDP_PORT -j ACCEPT
+ip rule add fwmark 0x01/0x01 table 100
+ip route add local 0.0.0.0/0 dev lo table 100
+iptables -t mangle -N REDSOCKS2
+iptables -t mangle -A REDSOCKS2 -p udp -j TPROXY --on-port $REDSOCKS_UDP_PORT --tproxy-mark 0x01/0x01
+iptables -t mangle -A PREROUTING -i $SUBNET_INTERFACE -p udp -j REDSOCKS2
