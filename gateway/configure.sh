@@ -9,17 +9,18 @@
 
 SOCKS_PORT=8899
 # SOCKS_HOST=$(getent ahosts pi4.local.pomelo.pink | awk '{ print $1 ; exit }')
-SOCKS_HOST=$SOCKS_HOST
 REDSOCKS_TCP_PORT=$(expr $SOCKS_PORT + 1)
 REDSOCKS_UDP_PORT=9999
 TMP=/tmp/subnetproxy ; mkdir -p $TMP
 REDSOCKS_LOG=$TMP/redsocks.log
 REDSOCKS_CONF=$TMP/redsocks.conf
 SUBNET_INTERFACE=eth1
+SUBNET_ADDRESS=$(ip -f inet addr show $SUBNET_INTERFACE | sed -En -e 's/.*inet ([0-9.]+).*/\1/p')
 # SUBNET_PORT_ADDRESS="192.168.2.1" #can't be the same subnet as eth1
 INTERNET_INTERFACE=eth0
 # SUDO_COMMAND="sudo"
 SUDO_COMMAND=""
+
 
 ########################################################################
 #standard router setup - sets up subnet SUBNET_PORT_ADDRESS/24 on eth0
@@ -56,7 +57,7 @@ redsocks {
   type = socks5;
 }
 redudp {
-	bind = "172.18.0.3:$REDSOCKS_UDP_PORT";
+	bind = "$SUBNET_ADDRESS:$REDSOCKS_UDP_PORT";
 	relay = "$SOCKS_HOST:$SOCKS_PORT";
 	type = socks5;
 	udp_timeout = 30;

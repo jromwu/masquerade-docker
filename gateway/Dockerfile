@@ -15,5 +15,8 @@ RUN apt-get install -y git gcc make libevent-dev libssl-dev \
     && cd .. && rm -rf redsocks \
     && apt-get remove -y git gcc make libevent-dev libssl-dev
 
-COPY configure.sh .
+RUN apt-get install -y tcpdump
 
+COPY configure.sh .
+RUN chmod +x configure.sh
+CMD ./configure.sh

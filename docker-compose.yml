@@ -1,11 +1,9 @@
 services:
   gateway:
-    # image: ubuntu:20.04
     build: gateway
-    command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
-    # ports:
-    # volumes:
-    #   - ./app:/app
+    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -w /pcap/gateway-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
+    volumes:
+      - ./pcap:/pcap
     environment:
       - SOCKS_HOST=172.17.0.1
     cap_add:
@@ -16,19 +14,28 @@ services:
 
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; apt install -y curl; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; curl example.com; tail -f /dev/null"
     # volumes:
     #   - todo-mysql-data:/var/lib/mysql
-    # environment:
-    #   MYSQL_ROOT_PASSWORD: secret
-    #   MYSQL_DATABASE: todos
     cap_add:
       - NET_ADMIN
     networks:
       - internal
+    depends_on:
+      - gateway
 
-volumes:
-  todo-mysql-data:
+  chromium:
+    build: chromium
+    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+    volumes:
+      - /dev/shm:/dev/shm
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - internal
+    depends_on:
+      - gateway
+    shm_size: '2gb'
 
 networks:
   external:
