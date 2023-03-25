@@ -1,20 +1,7 @@
 services:
-  gateway:
-    build: gateway
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -w /pcap/gateway-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
-    volumes:
-      - ./pcap:/pcap
-    environment:
-      - SOCKS_HOST=172.17.0.1
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - external # eth0
-      - internal # eth1
-
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; curl example.com; python3 ./test_selenium_form.py; tail -f /dev/null"
+    command: sh -c "echo hello world; curl example.com; python3 ./test_selenium_form.py; tail -f /dev/null"
     volumes:
       - ./selenium/captures:/usr/captures
     environment:
@@ -26,8 +13,6 @@ services:
     networks:
       - internal
     depends_on:
-      gateway:
-        condition: service_started
       chromium:
         condition: service_healthy
       # firefox:
@@ -35,7 +20,7 @@ services:
 
   chromium:
     build: chromium
-    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+    command: sh -c "echo hello world; curl example.com; /opt/bin/entry_point.sh"
     ports:
       - "4444:4444" # for development
     volumes:
@@ -44,8 +29,6 @@ services:
       - NET_ADMIN
     networks:
       - internal
-    depends_on:
-      - gateway
     shm_size: '2gb'
     healthcheck:
         test: curl -f http://localhost:4444 || exit 1
@@ -56,7 +39,7 @@ services:
 
   # firefox:
   #   build: firefox
-  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+  #   command: sh -c "echo hello world; curl example.com; /opt/bin/entry_point.sh"
   #   ports:
   #     - "4445:4444" # for development
   #   volumes:
@@ -65,8 +48,6 @@ services:
   #     - NET_ADMIN
   #   networks:
   #     - internal
-  #   depends_on:
-  #     - gateway
   #   shm_size: '2gb'
   #   healthcheck:
   #       test: curl -f http://localhost:4444 || exit 1

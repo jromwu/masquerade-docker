@@ -1,4 +1,4 @@
-FROM seleniarm/standalone-firefox:4.8.0
+FROM selenium/standalone-firefox:4.8.0
 
 RUN sudo apt-get -y update
 
