@@ -1,4 +1,4 @@
-FROM selenium/standalone-chromium:4.8.0
+FROM selenium/standalone-chrome:4.8.0
 
 RUN sudo apt-get -y update
 
