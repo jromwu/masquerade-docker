@@ -18,7 +18,8 @@ services:
     volumes:
       - ./selenium/captures:/usr/captures
     environment:
-      - DRIVER_ADDR=http://chromium:4444
+      - CHROMIUM_DRIVER_ADDR=http://chromium:4444
+      - FIREFOX_DRIVER_ADDR=http://firefox:4444
       - CAPTURES_DIR=/usr/captures
     cap_add:
       - NET_ADMIN
@@ -29,10 +30,14 @@ services:
         condition: service_started
       chromium:
         condition: service_healthy
+      # firefox:
+      #   condition: service_healthy
 
   chromium:
     build: chromium
     command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+    ports:
+      - "4444:4444" # for development
     volumes:
       - /dev/shm:/dev/shm
     cap_add:
@@ -48,6 +53,27 @@ services:
         timeout: 2s
         retries: 5
         start_period: 20s
+
+  # firefox:
+  #   build: firefox
+  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+  #   ports:
+  #     - "4445:4444" # for development
+  #   volumes:
+  #     - /dev/shm:/dev/shm
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     - internal
+  #   depends_on:
+  #     - gateway
+  #   shm_size: '2gb'
+  #   healthcheck:
+  #       test: curl -f http://localhost:4444 || exit 1
+  #       interval: 10s
+  #       timeout: 2s
+  #       retries: 5
+  #       start_period: 20s
 
 
 
