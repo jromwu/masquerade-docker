@@ -8,7 +8,7 @@
 ########################################################################
 
 SOCKS_PORT=8899
-# SOCKS_HOST=$(getent ahosts pi4.local.pomelo.pink | awk '{ print $1 ; exit }')
+SOCKS_HOST=$(getent ahosts $SOCKS_HOST | awk '{ print $1 ; exit }')
 REDSOCKS_TCP_PORT=$(expr $SOCKS_PORT + 1)
 REDSOCKS_UDP_PORT=9999
 TMP=/tmp/subnetproxy ; mkdir -p $TMP

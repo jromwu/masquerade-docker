@@ -104,20 +104,20 @@ def test_eight_components():
     recording.stop()
     driver.quit()
 
-def get_chromium_driver():
+def get_chrome_driver():
     chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument("enable-quic")
-    chrome_options.add_argument("quic-version=h3-29")
+    # chrome_options.add_argument("enable-quic")
+    # chrome_options.add_argument("quic-version=h3-27")
     chrome_options.add_argument("origin-to-force-quic-on=cloudflare-quic.com:443")
     driver = webdriver.Remote(
-        command_executor=os.environ["CHROMIUM_DRIVER_ADDR"],
+        command_executor=os.environ["CHROME_DRIVER_ADDR"],
         options=chrome_options
     )
     return driver
 
 def get_firefox_driver():
     firefox_options = webdriver.FirefoxOptions()
-    # firefox_options.set_preference("network.dns.httpssvc.http3_fast_fallback_timeout", 0)
+    firefox_options.set_preference("network.dns.httpssvc.http3_fast_fallback_timeout", 0)
     # firefox_options.set_preference("network.http.http3.alt-svc-mapping-for-testing", r'cloudflare-quic.com;h3=":443"')
     driver = webdriver.Remote(
         command_executor=os.environ["FIREFOX_DRIVER_ADDR"],
@@ -218,12 +218,13 @@ def test_get_quic_fastly(driver, dir):
     driver.quit()
 
 print("hello world")
-print("CHROMIUM_DRIVER_ADDR={}".format(os.environ["CHROMIUM_DRIVER_ADDR"]))
+print("CHROME_DRIVER_ADDR={}".format(os.environ["CHROME_DRIVER_ADDR"]))
 print("FIREFOX_DRIVER_ADDR={}".format(os.environ["FIREFOX_DRIVER_ADDR"]))
 print("CAPTURES_DIR={}".format(os.environ["CAPTURES_DIR"]))
 # test_eight_components()
-# test_get_quic_cloudflare(get_firefox_driver(), "{}/quic-cloudflare".format(os.environ["CAPTURES_DIR"]))
-# test_get_quic_nginx(get_firefox_driver(), "{}/quic-nginx".format(os.environ["CAPTURES_DIR"]))
-test_get_quic_nginx(get_chromium_driver(), "{}/quic-nginx".format(os.environ["CAPTURES_DIR"]))
-# test_get_quic_fastly(get_firefox_driver(), "{}/quic-fastly".format(os.environ["CAPTURES_DIR"]))
-test_get_quic_fastly(get_chromium_driver(), "{}/quic-fastly".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_cloudflare(get_chrome_driver(), "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_cloudflare(get_firefox_driver(), "{}/quic-cloudflare/firefox".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_nginx(get_firefox_driver(), "{}/quic-nginx/firefox".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_nginx(get_chrome_driver(), "{}/quic-nginx/chrome".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_fastly(get_firefox_driver(), "{}/quic-fastly/firefox".format(os.environ["CAPTURES_DIR"]))
+test_get_quic_fastly(get_chrome_driver(), "{}/quic-fastly/chrome".format(os.environ["CAPTURES_DIR"]))
