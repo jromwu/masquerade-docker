@@ -10,9 +10,9 @@
 SOCKS_PORT=8899
 SOCKS_HOST=$(getent ahosts $SOCKS_HOST | awk '{ print $1 ; exit }')
 REDSOCKS_TCP_PORT=$(expr $SOCKS_PORT + 1)
-REDSOCKS_UDP_PORT=9999
+REDSOCKS_UDP_PORT=$(expr $SOCKS_PORT + 2)
 TMP=/tmp/subnetproxy ; mkdir -p $TMP
-REDSOCKS_LOG=$TMP/redsocks.log
+REDSOCKS_LOG=/log/redsocks.log
 REDSOCKS_CONF=$TMP/redsocks.conf
 SUBNET_INTERFACE=eth1
 SUBNET_ADDRESS=$(ip -f inet addr show $SUBNET_INTERFACE | sed -En -e 's/.*inet ([0-9.]+).*/\1/p')
@@ -60,7 +60,7 @@ redudp {
 	bind = "$SUBNET_ADDRESS:$REDSOCKS_UDP_PORT";
 	relay = "$SOCKS_HOST:$SOCKS_PORT";
 	type = socks5;
-	udp_timeout = 30;
+	udp_timeout = 10;
 	// udp_timeout_stream = 180;
 }
 EOF
@@ -87,7 +87,7 @@ $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 10.0.0.0/8 -j RETURN
 $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 127.0.0.0/8 -j RETURN
 $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 169.254.0.0/16 -j RETURN
 $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 172.16.0.0/12 -j RETURN
-#$SUDO_COMMAND iptables -t nat -A REDSOCKS -d 192.168.0.0/16 -j RETURN
+$SUDO_COMMAND iptables -t nat -A REDSOCKS -d 192.168.0.0/16 -j RETURN
 $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 224.0.0.0/4 -j RETURN
 $SUDO_COMMAND iptables -t nat -A REDSOCKS -d 240.0.0.0/4 -j RETURN
 

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-route del default
-route add default gateway gateway
+# route del default
+# route add default gateway gateway

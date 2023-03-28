@@ -4,6 +4,7 @@ services:
     command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
+      - ./log/gateway:/log
     environment:
       - SOCKS_HOST=proxy
     cap_add:
@@ -13,15 +14,31 @@ services:
       - internal # eth1
     depends_on:
       - proxy
-  
-  proxy:
-    build: proxy
+
+  capturer:
+    build: capturer
+    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
     networks:
+      - outbound # eth0
+      - proxy_external # eth1
+    cap_add:
+      - NET_ADMIN
+
+  proxy:
+    build: proxy
+    command: sh -c "./configure.sh; service 3proxy start; tail -f /dev/null"
+    volumes:
+      - ./pcap:/pcap
+    cap_add:
+      - NET_ADMIN
+    networks:
       external:       # eth0
       proxy_external: # eth1
-        ipv4_address: 172.21.0.2
+        ipv4_address: 172.21.0.10
+    depends_on:
+      - capturer
 
   client:
     build: client
@@ -41,8 +58,8 @@ services:
         condition: service_started
       chrome:
         condition: service_healthy
-      firefox:
-        condition: service_healthy
+      # firefox:
+      #   condition: service_healthy
 
   chrome:
     build: chrome
@@ -60,36 +77,38 @@ services:
       - gateway
     shm_size: '2gb'
     healthcheck:
-        test: curl -f http://localhost:4444 || exit 1
-        interval: 10s
-        timeout: 2s
-        retries: 5
-        start_period: 20s
-
-  firefox:
-    build: firefox
-    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
-    ports:
-      - "4445:4444" # for development
-    volumes:
-      - /dev/shm:/dev/shm
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - internal
-    depends_on:
-      - gateway
-    shm_size: '2gb'
-    healthcheck:
       test: curl -f http://localhost:4444 || exit 1
       interval: 10s
       timeout: 2s
       retries: 5
       start_period: 20s
 
+  # firefox:
+  #   build: firefox
+  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+  #   ports:
+  #     - "4445:4444" # for development
+  #   volumes:
+  #     - /dev/shm:/dev/shm
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     - internal
+  #   depends_on:
+  #     - gateway
+  #   shm_size: '2gb'
+  #   healthcheck:
+  #     test: curl -f http://localhost:4444 || exit 1
+  #     interval: 10s
+  #     timeout: 2s
+  #     retries: 5
+  #     start_period: 20s
+
 
 
 networks:
+  outbound:
+    driver: bridge
   proxy_external:
     driver: bridge
     ipam: 
