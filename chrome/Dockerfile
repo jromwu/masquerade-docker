@@ -11,4 +11,4 @@ WORKDIR /app
 COPY configure.sh .
 
 # for testing
-RUN sudo apt-get install -y tcpdump 
+RUN sudo apt-get install -y tcpdump netcat

@@ -58,8 +58,8 @@ services:
         condition: service_started
       chrome:
         condition: service_healthy
-      # firefox:
-      #   condition: service_healthy
+      firefox:
+        condition: service_healthy
 
   chrome:
     build: chrome
@@ -83,28 +83,26 @@ services:
       retries: 5
       start_period: 20s
 
-  # firefox:
-  #   build: firefox
-  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
-  #   ports:
-  #     - "4445:4444" # for development
-  #   volumes:
-  #     - /dev/shm:/dev/shm
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     - internal
-  #   depends_on:
-  #     - gateway
-  #   shm_size: '2gb'
-  #   healthcheck:
-  #     test: curl -f http://localhost:4444 || exit 1
-  #     interval: 10s
-  #     timeout: 2s
-  #     retries: 5
-  #     start_period: 20s
-
-
+  firefox:
+    build: firefox
+    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+    ports:
+      - "4445:4444" # for development
+    volumes:
+      - /dev/shm:/dev/shm
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - internal
+    depends_on:
+      - gateway
+    shm_size: '2gb'
+    healthcheck:
+      test: curl -f http://localhost:4444 || exit 1
+      interval: 10s
+      timeout: 2s
+      retries: 5
+      start_period: 20s
 
 networks:
   outbound:

@@ -35,7 +35,7 @@ SUDO_COMMAND=""
 #      -m conntrack --ctstate NEW -j ACCEPT
 # $SUDO_COMMAND iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED \
 #      -j ACCEPT
-$SUDO_COMMAND iptables -A POSTROUTING -t nat -j MASQUERADE
+# $SUDO_COMMAND iptables -A POSTROUTING -t nat -j MASQUERADE
 
 # iptables --table nat --append POSTROUTING --out-interface eth0 -j MASQUERADE
 # iptables --append FORWARD --in-interface eth1 -j ACCEPT
@@ -47,6 +47,7 @@ $SUDO_COMMAND iptables -A POSTROUTING -t nat -j MASQUERADE
 cat >$REDSOCKS_CONF <<EOF
 base {
   log_info = on;
+  // log_debug = on;
   log = "file:$REDSOCKS_LOG";
   daemon = on;
   redirector = iptables;
@@ -60,8 +61,8 @@ redudp {
 	bind = "$SUBNET_ADDRESS:$REDSOCKS_UDP_PORT";
 	relay = "$SOCKS_HOST:$SOCKS_PORT";
 	type = socks5;
-	udp_timeout = 10;
-	// udp_timeout_stream = 180;
+	udp_timeout = 30;
+	udp_timeout_stream = 180;
 }
 EOF
 
@@ -112,5 +113,20 @@ $SUDO_COMMAND iptables -A INPUT -i $SUBNET_INTERFACE -p tcp --dport $REDSOCKS_TC
 ip rule add fwmark 0x01/0x01 table 100
 ip route add local 0.0.0.0/0 dev lo table 100
 iptables -t mangle -N REDSOCKS2
+
+iptables -t mangle -A REDSOCKS2 -d 0.0.0.0/8 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 10.0.0.0/8 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 127.0.0.0/8 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 169.254.0.0/16 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 172.16.0.0/12 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 192.168.0.0/16 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 224.0.0.0/4 -j RETURN
+iptables -t mangle -A REDSOCKS2 -d 240.0.0.0/4 -j RETURN
+
 iptables -t mangle -A REDSOCKS2 -p udp -j TPROXY --on-port $REDSOCKS_UDP_PORT --tproxy-mark 0x01/0x01
 iptables -t mangle -A PREROUTING -i $SUBNET_INTERFACE -p udp -j REDSOCKS2
+
+# Proxy UDP without going through socks5 proxy
+# iptables --table nat --append POSTROUTING --out-interface $INTERNET_INTERFACE -p udp -j MASQUERADE
+# iptables --append FORWARD --in-interface $SUBNET_INTERFACE -p udp -j ACCEPT
+# iptables -A FORWARD -i $INTERNET_INTERFACE -o $SUBNET_INTERFACE -m state --state ESTABLISHED,RELATED -p udp -j ACCEPT
