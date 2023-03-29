@@ -1,7 +1,7 @@
 services:
   gateway:
     build: gateway
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-in-$(date +%Y-%m-%d-%H-%M-%S).pcap & tcpdump -i eth0 -n -U -w /pcap/gateway-out-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
       - ./log/gateway:/log
@@ -10,39 +10,67 @@ services:
     cap_add:
       - NET_ADMIN
     networks:
-      - external # eth0
-      - internal # eth1
+      - gateway_external # eth0
+      - gateway_internal # eth1
     depends_on:
       - proxy
 
   capturer:
     build: capturer
+    # command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
     command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
     networks:
-      - outbound # eth0
+      - capturer_external # eth0
       - proxy_external # eth1
     cap_add:
       - NET_ADMIN
 
+  # proxy:
+  #   build: proxy-example
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     gateway_external:   # eth0
+  #     proxy_external:     # eth1
+  #       ipv4_address: 172.21.0.10 # for 3proxy
+  #   depends_on:
+  #     - capturer
+
   proxy:
-    build: proxy
-    command: sh -c "./configure.sh; service 3proxy start; tail -f /dev/null"
+    build: proxy-client
     volumes:
-      - ./pcap:/pcap
+      - ./log/proxy:/log
+    environment:
+      - LISTEN_ADDR=172.20.0.10:8899
+      - SERVER_ADDR=172.22.0.11:4433
     cap_add:
       - NET_ADMIN
     networks:
-      external:       # eth0
-      proxy_external: # eth1
-        ipv4_address: 172.21.0.10
+      gateway_external: # eth0
+        ipv4_address: 172.20.0.10
+      proxy_external:   # eth1
     depends_on:
       - capturer
+      - proxy-server
+
+  proxy-server:
+    # build: proxy-server
+    build: proxy-client
+    command: sh -c "tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap &  echo hello world;  RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null"
+    volumes:
+      - ./pcap:/pcap
+      - ./log/proxy:/log
+    environment:
+      - LISTEN_ADDR=172.22.0.11:4433
+    networks:
+      capturer_external:
+        ipv4_address: 172.22.0.11
 
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; curl example.com; python3 ./test_selenium_form.py; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; python3 ./test_selenium_form.py; tail -f /dev/null"
     volumes:
       - ./captures:/usr/captures
     environment:
@@ -52,18 +80,16 @@ services:
     cap_add:
       - NET_ADMIN
     networks:
-      - internal
+      - gateway_internal
     depends_on:
-      gateway:
-        condition: service_started
       chrome:
         condition: service_healthy
-      firefox:
-        condition: service_healthy
+      # firefox:
+      #   condition: service_healthy
 
   chrome:
     build: chrome
-    command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap & curl example.com; /opt/bin/entry_point.sh"
+    command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & curl example.com; /opt/bin/entry_point.sh"
     ports:
       - "4444:4444" # for development
     volumes:
@@ -72,7 +98,7 @@ services:
     cap_add:
       - NET_ADMIN
     networks:
-      - internal
+      - gateway_internal
     depends_on:
       - gateway
     shm_size: '2gb'
@@ -83,38 +109,45 @@ services:
       retries: 5
       start_period: 20s
 
-  firefox:
-    build: firefox
-    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
-    ports:
-      - "4445:4444" # for development
-    volumes:
-      - /dev/shm:/dev/shm
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - internal
-    depends_on:
-      - gateway
-    shm_size: '2gb'
-    healthcheck:
-      test: curl -f http://localhost:4444 || exit 1
-      interval: 10s
-      timeout: 2s
-      retries: 5
-      start_period: 20s
+  # firefox:
+  #   build: firefox
+  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+  #   ports:
+  #     - "4445:4444" # for development
+  #   volumes:
+  #     - /dev/shm:/dev/shm
+  #   cap_add:
+  #     - NET_ADMIN
+  #   networks:
+  #     - gateway_internal
+  #   depends_on:
+  #     - gateway
+  #   shm_size: '2gb'
+  #   healthcheck:
+  #     test: curl -f http://localhost:4444 || exit 1
+  #     interval: 10s
+  #     timeout: 2s
+  #     retries: 5
+  #     start_period: 20s
 
 networks:
-  outbound:
+  capturer_external:
     driver: bridge
+    ipam: 
+      driver: default
+      config: 
+        - subnet: 172.22.0.0/16
   proxy_external:
     driver: bridge
     ipam: 
       driver: default
       config: 
         - subnet: 172.21.0.0/16
-          # gateway: 172.21.0.1
-  external:
+  gateway_external:
     driver: bridge
-  internal:
+    ipam: 
+      driver: default
+      config: 
+        - subnet: 172.20.0.0/16
+  gateway_internal:
     driver: bridge

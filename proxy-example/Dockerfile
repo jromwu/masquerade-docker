@@ -20,4 +20,4 @@ COPY 3proxy.cfg /usr/local/3proxy/conf/3proxy.cfg
 COPY configure.sh .
 
 # CMD danted & service 3proxy start & tcpdump -i eth1 -n -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap
-CMD tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap & service 3proxy start; tail -f /dev/null
+CMD ./configure.sh; service 3proxy start; tail -f /dev/null

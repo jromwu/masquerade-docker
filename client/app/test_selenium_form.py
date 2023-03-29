@@ -106,9 +106,9 @@ def test_eight_components():
 
 def get_chrome_driver():
     chrome_options = webdriver.ChromeOptions()
-    # chrome_options.add_argument("enable-quic")
+    chrome_options.add_argument("enable-quic")
     # chrome_options.add_argument("quic-version=h3-27")
-    chrome_options.add_argument("origin-to-force-quic-on=cloudflare-quic.com:443")
+    # chrome_options.add_argument("origin-to-force-quic-on=cloudflare-quic.com:443")
     driver = webdriver.Remote(
         command_executor=os.environ["CHROME_DRIVER_ADDR"],
         options=chrome_options
