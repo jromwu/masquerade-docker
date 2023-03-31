@@ -1,7 +1,8 @@
 services:
   gateway:
     build: gateway
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-in-$(date +%Y-%m-%d-%H-%M-%S).pcap & tcpdump -i eth0 -n -U -w /pcap/gateway-out-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
+    # command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-in-$(date +%Y-%m-%d-%H-%M-%S).pcap & tcpdump -i eth0 -n -U -w /pcap/gateway-out-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
       - ./log/gateway:/log
@@ -17,8 +18,8 @@ services:
 
   capturer:
     build: capturer
-    # command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
+    # command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap udp; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
     networks:
@@ -58,7 +59,7 @@ services:
   proxy-server:
     # build: proxy-server
     build: proxy-client
-    command: sh -c "tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap &  echo hello world;  RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null"
+    command: sh -c "tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & echo hello world; RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
       - ./log/proxy:/log
@@ -70,13 +71,14 @@ services:
 
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; python3 ./test_selenium_form.py; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; python3 ./main.py; tail -f /dev/null"
     volumes:
       - ./captures:/usr/captures
     environment:
       - CHROME_DRIVER_ADDR=http://chrome:4444
       - FIREFOX_DRIVER_ADDR=http://firefox:4444
       - CAPTURES_DIR=/usr/captures
+      - CHROME_SETUP=${CHROME_SETUP}
     cap_add:
       - NET_ADMIN
     networks:
@@ -92,8 +94,10 @@ services:
     command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & curl example.com; /opt/bin/entry_point.sh"
     ports:
       - "4444:4444" # for development
+      - "7900:7900" # for vnc
     volumes:
       - ./pcap:/pcap
+      - ./chrome_user_data:/user-data
       - /dev/shm:/dev/shm
     cap_add:
       - NET_ADMIN

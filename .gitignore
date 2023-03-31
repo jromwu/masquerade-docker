@@ -1,6 +1,8 @@
-pcap/
-captures/
-log/
+pcap/*
+captures/*
+log/gateway/*
+log/proxy/*
+chrome_user_data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

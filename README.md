@@ -14,7 +14,13 @@ Linux kernel must enable `TPROXY` module for `iptables` in order for gateway to 
 Right now x86 docker images are being used for Selenium. One can switch to Seleniarm's images for arm processer.
 
 ## To-Do
-- [ ] Write application for Selenium Webdriver, e.g. Google Hangout, Google Meet 
+- [ ] Write application for Selenium Webdriver
+ - [ ] Google Hangout chat
+ - [ ] Google Hangout call
+ - [ ] Google Meet meeting
+ - [ ] Youtube video streaming
+ - [ ] Google Play music streaming
+ - [ ] Google Drive file download
 - [x] Set up masquerade server for proxy
 - [x] Add Selenium Webdriver
 - [ ] Compile curl with QUIC in client

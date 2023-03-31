@@ -6,8 +6,8 @@ RUN apt-get -y upgrade
 RUN apt install -y cmake
 RUN apt install -y git
 
-# RUN git clone https://github.com/jromwu/masquerade.git
-COPY ./masquerade /masquerade
+RUN git clone https://github.com/jromwu/masquerade.git
+# COPY ./masquerade /masquerade
 WORKDIR /masquerade
 RUN cargo build
 
