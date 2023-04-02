@@ -3,6 +3,9 @@ captures/*
 log/gateway/*
 log/proxy/*
 chrome_user_data/*
+chrome_uncaptured_user_data/*
+
+proxy-client/masquerade
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

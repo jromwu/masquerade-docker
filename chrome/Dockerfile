@@ -11,3 +11,6 @@ RUN sudo apt-get install -y tcpdump netcat
 WORKDIR /app
 
 COPY configure.sh .
+COPY configure_route.sh .
+
+RUN sudo chmod +x ./configure.sh ./configure_route.sh
