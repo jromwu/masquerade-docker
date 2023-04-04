@@ -69,28 +69,28 @@ services:
       capturer_external:
         ipv4_address: 172.22.0.11
 
-  # client:
-  #   build: client
-  #   command: sh -c "./configure.sh; echo hello world; python3 ./main.py; tail -f /dev/null"
-  #   volumes:
-  #     - ./captures:/usr/captures
-  #   environment:
-  #     - CHROME_DRIVER_ADDR=http://chrome:4444
-  #     - CHROME_UNCAPTURED_DRIVER_ADDR=http://chrome_uncaptured:4444
-  #     - FIREFOX_DRIVER_ADDR=http://firefox:4444
-  #     - CAPTURES_DIR=/usr/captures
-  #     - CHROME_SETUP=${CHROME_SETUP}
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     - gateway_internal
-  #   depends_on:
-  #     chrome:
-  #       condition: service_healthy
-  #     chrome_uncaptured:
-  #       condition: service_healthy
-  #     # firefox:
-  #     #   condition: service_healthy
+  client:
+    build: client
+    command: sh -c "./configure.sh; echo hello world; python3 ./main.py; tail -f /dev/null"
+    volumes:
+      - ./captures:/usr/captures
+    environment:
+      - CHROME_DRIVER_ADDR=http://chrome:4444
+      - CHROME_UNCAPTURED_DRIVER_ADDR=http://chrome_uncaptured:4444
+      - FIREFOX_DRIVER_ADDR=http://firefox:4444
+      - CAPTURES_DIR=/usr/captures
+      - CHROME_SETUP=${CHROME_SETUP}
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - gateway_internal
+    depends_on:
+      chrome:
+        condition: service_healthy
+      chrome_uncaptured:
+        condition: service_healthy
+      # firefox:
+      #   condition: service_healthy
 
   chrome:
     build: chrome
