@@ -11,6 +11,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
 
@@ -126,10 +127,10 @@ def setup_google_hangouts_chat(driver, dir, target_email):
         driver.save_screenshot("{}/x-element_not_found.png".format(dir))
         logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
 
-def test_google_hangouts_chat(driver1, driver2, dir):
+def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, max_length=100):
     Path(dir).mkdir(parents=True, exist_ok=True)
 
-    def send_chat_messages(driver, dir, num_msgs=5, min_length=1, max_length=100):
+    def send_chat_messages(driver, dir, num_msgs, min_length, max_length):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
@@ -155,8 +156,8 @@ def test_google_hangouts_chat(driver1, driver2, dir):
         setup_future_2 = executor.submit(setup_google_hangouts_chat, driver2, f"{dir}/setup-2", EMAIL_1)
         setup_future_1.result()
         setup_future_2.result()
-        chat_future_1 = executor.submit(send_chat_messages, driver1, f"{dir}/chat-1")
-        chat_future_2 = executor.submit(send_chat_messages, driver2, f"{dir}/chat-2")
+        chat_future_1 = executor.submit(send_chat_messages, driver1, f"{dir}/chat-1", num_msgs, min_length, max_length)
+        chat_future_2 = executor.submit(send_chat_messages, driver2, f"{dir}/chat-2", num_msgs, min_length, max_length)
         chat_future_1.result()
         chat_future_2.result()
     
@@ -189,8 +190,9 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             driver.switch_to.frame(call_frame)
 
             driver.implicitly_wait(0)
-            join_button = WebDriverWait(driver, timeout=30).until(lambda driver: driver.find_element(By.CSS_SELECTOR, "button[aria-label='Answer call']"))
+            join_button = WebDriverWait(driver, timeout=30).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Answer call']")))
             join_button.click()
+            # driver.execute_script("arguments[0].click();", join_button)
             
             driver.save_screenshot(f"{dir}/2-accepted_call.png")
             driver.implicitly_wait(2)
@@ -212,8 +214,9 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
                 .move_to_element(hang_button)\
                 .click()\
                 .pause(1)\
+                .click()\
                 .perform()
-            hang_button.click()
+            # hang_button.click()
             
             driver.save_screenshot(f"{dir}/5-hanged_call.png")
             driver.switch_to.default_content()
@@ -240,6 +243,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
         driver1.save_screenshot(f"{dir}/call-1/3-call_established.png")
         driver2.save_screenshot(f"{dir}/call-2/3-call_established.png")
         logging.info("google hangouts call established!")
+        logging.info(f"call will last {call_length} seconds")
         time.sleep(call_length)
         driver1.save_screenshot(f"{dir}/call-1/4-call_about_to_end.png")
         driver2.save_screenshot(f"{dir}/call-2/4-call_about_to_end.png")
@@ -251,6 +255,112 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             logging.info("google hangouts call hanged by driver 2!")
     
     logging.info("google hangouts chat done!")
+
+# It's worth noting that Google Hangouts calls are now also powered by Google Meet
+def test_google_meet(driver1, driver2, dir, meet_length=30):
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    leave_call_button_selector = "button[aria-label='Leave call']"
+
+    def create_meeting(driver, dir):
+        Path(dir).mkdir(parents=True, exist_ok=True)
+        try:
+            driver.get("https://meet.google.com/")
+            driver.implicitly_wait(2)
+            new_meeting_button = driver.find_element(By.XPATH, "//button[./span[normalize-space()='New meeting']]")
+            new_meeting_button.click()
+            instant_meeting_button = driver.find_element(By.CSS_SELECTOR, "li[aria-label='Start an instant meeting']")
+            instant_meeting_button.click()
+            driver.implicitly_wait(0)
+            meeting_link_box = WebDriverWait(driver, timeout=15).until(lambda driver: driver.find_element(By.XPATH, "//div[starts-with(text(), 'meet.google.com/')]"))
+            driver.save_screenshot(f"{dir}/1-started_meeting.png")
+            meeting_link = meeting_link_box.text
+        except Exception as e:
+            logging.exception(e)
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+
+        if meeting_link is None:
+            meeting_link = driver.current_url
+        if not meeting_link.startswith('http'):
+            meeting_link = 'https://' + meeting_link
+        return meeting_link
+
+    def accept_join(driver, dir):
+        Path(dir).mkdir(parents=True, exist_ok=True)
+        try:
+            driver.implicitly_wait(1)
+            try:
+                # Maybe a warning will pop up, click the "Got it" button to dismiss it
+                got_it_button = driver.find_element(By.XPATH, "//button[./span[text()='Got it']]")
+                got_it_button.click()
+            except NoSuchElementException as e:
+                pass
+            driver.implicitly_wait(0)
+            accept_button = WebDriverWait(driver, timeout=30).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[data-mdc-dialog-action='accept']")))
+            accept_button.click()
+            driver.save_screenshot(f"{dir}/2-accepted_participant.png")
+        except Exception as e:
+            logging.exception(e)
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+    
+    def join_meeting(driver, dir, link):
+        Path(dir).mkdir(parents=True, exist_ok=True)
+        try:
+            driver.get(link)
+            driver.implicitly_wait(2)
+            # maybe a microphone popup will appear, use selector "div[aria-modal='true'] button" to click dismiss
+            ask_to_join_button = driver.find_element(By.XPATH, "//button[./span[text()='Ask to join']]")
+            ask_to_join_button.click()
+            driver.save_screenshot(f"{dir}/1-waiting_to_join.png")
+            driver.implicitly_wait(0)
+            leave_call_button = WebDriverWait(driver, timeout=20).until(lambda driver: driver.find_element(By.CSS_SELECTOR, leave_call_button_selector))
+            driver.save_screenshot(f"{dir}/2-joined_meeting.png")
+        except Exception as e:
+            logging.exception(e)
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+
+    def exit_meeting(driver, dir):
+        Path(dir).mkdir(parents=True, exist_ok=True)
+        try:
+            driver.implicitly_wait(2)
+            exit_button = driver.find_element(By.CSS_SELECTOR, leave_call_button_selector)
+            exit_button.click()
+            driver.save_screenshot(f"{dir}/5-exited.png")
+        except Exception as e:
+            logging.exception(e)
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+    
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        if bool(random.getrandbits(1)):
+            logging.info(f"Meeting being created by driver 1")
+            meeting_link = create_meeting(driver1, f"{dir}/create_meeting")
+            logging.info(f"Meeting at {meeting_link} being joined by driver 2")
+            join_future = executor.submit(join_meeting, driver2, f"{dir}/join_meeting", meeting_link)
+            accept_future = executor.submit(accept_join, driver1, f"{dir}/create_meeting")
+        else:
+            logging.info(f"Meeting being created by driver 2")
+            meeting_link = create_meeting(driver2, f"{dir}/create_meeting")
+            logging.info(f"Meeting at {meeting_link} being joined by driver 1")
+            join_future = executor.submit(join_meeting, driver1, f"{dir}/join_meeting", meeting_link)
+            accept_future = executor.submit(accept_join, driver2, f"{dir}/create_meeting")
+        join_future.result()
+        accept_future.result()
+        logging.info(f"Participants joined, meeting started")
+        driver1.save_screenshot(f"{dir}/during_meeting_1/3-meeting_in_progress.png")
+        driver2.save_screenshot(f"{dir}/during_meeting_2/3-meeting_in_progress.png")
+        logging.info(f"The meeting will last {meet_length} seconds")
+        time.sleep(meet_length)
+        driver1.save_screenshot(f"{dir}/during_meeting_1/4-meeting_about_to_end.png")
+        driver2.save_screenshot(f"{dir}/during_meeting_2/4-meeting_about_to_end.png")
+        exit_future_1 = executor.submit(exit_meeting, driver1, f"{dir}/during_meeting_1")
+        exit_future_2 = executor.submit(exit_meeting, driver2, f"{dir}/during_meeting_2")
+        exit_future_1.result()
+        exit_future_2.result()
+    
+    logging.info("google meet done!")
 
 def is_docker():
     path = '/proc/self/cgroup'
@@ -275,9 +385,10 @@ try:
         uncaptured_driver.quit()
         exit(1)
     
-    test_google_hangouts_chat(driver, uncaptured_driver, "{}/hangouts_chat".format(os.environ["CAPTURES_DIR"]))
-    test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
-    
+    # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat")
+    # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
+    test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
+
     if not is_docker():
         time.sleep(300) # for development
 finally:
