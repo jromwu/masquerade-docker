@@ -362,6 +362,33 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
     
     logging.info("google meet done!")
 
+def skip_or_wait_for_youtube_ads(driver):
+    driver.implicitly_wait(1)
+    try:
+        # if found, there is an ad, if it is skippable, once the skip button appears, this text will be gone
+        ad_indicator = driver.find_element(By.CLASS_NAME, "ytp-ad-preview-text") 
+        logging.info("ads playing")
+        driver.implicitly_wait(0)
+        WebDriverWait(driver, timeout=30).until(expected_conditions.invisibility_of_element_located((By.CLASS_NAME, "ytp-ad-preview-text")))
+        logging.info("ads unskippable part finished")
+    except NoSuchElementException:
+        pass
+    except TimeoutException as e:
+        logging.exception(e)
+
+    try:
+        skip_ad_button = driver.find_element(By.CLASS_NAME, "ytp-ad-skip-button") # if found, there is a skip button
+        driver.implicitly_wait(0)
+        skip_ad_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CLASS_NAME, "ytp-ad-skip-button")))
+        skip_ad_button.click()
+        logging.info("ads skipped")
+    except NoSuchElementException:
+        pass
+    except TimeoutException as e:
+        logging.exception(e)
+
+    logging.info("ads finished")
+
 def test_youtube_video(driver, dir, watch_length=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
@@ -373,16 +400,7 @@ def test_youtube_video(driver, dir, watch_length=60):
         driver.save_screenshot(f"{dir}/1-loaded_video.png")
         metadata = driver.find_element(By.CSS_SELECTOR, "#title.ytd-watch-metadata h1 yt-formatted-string").text
         logging.info(f"Started watching: {metadata}")
-        try:
-            skip_ad_button = driver.find_element(By.CLASS_NAME, "ytp-ad-skip-button")
-            driver.implicitly_wait(0)
-            skip_ad_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CLASS_NAME, "ytp-ad-skip-button")))
-            skip_ad_button.click()
-            logging.info("Skipped ads")
-        except NoSuchElementException:
-            pass
-        except TimeoutException as e:
-            logging.exception(e)
+        skip_or_wait_for_youtube_ads(driver)
             
         driver.save_screenshot(f"{dir}/2-started_video.png")
         logging.info(f"Watching for {watch_length} seconds")
@@ -393,6 +411,41 @@ def test_youtube_video(driver, dir, watch_length=60):
         logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
     
     logging.info("youtube video done!")
+
+def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song_listen_time=60, chance_to_next_song=0.7):
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    try:
+        driver.get("https://music.youtube.com/channel/UCI6B8NkZKqlFWoiC_xE-hzA") # we use this YOASOBI channel because their songs are all without music videos
+        driver.implicitly_wait(0)
+        # Shuffle play to get randomness
+        shuffle_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, ".play-button button[aria-label='Shuffle']")))
+        shuffle_button.click()
+        driver.save_screenshot(f"{dir}/1-loaded.png")
+        for i in range(num_song):
+            driver.save_screenshot(f"{dir}/2-song-{i}.png")
+            skip_or_wait_for_youtube_ads(driver)
+            title = driver.find_element(By.CSS_SELECTOR, ".title.style-scope.ytmusic-player-bar").text
+            logging.info(f"Started listening song {i}: {title}")
+
+            if bool(random.random() < chance_to_next_song):
+                driver.implicitly_wait(2)
+                listen_time = random.uniform(min_song_listen_time, max_song_listen_time)
+                logging.info(f"Getting next song after {listen_time}")
+                time.sleep(listen_time)
+                logging.info(f"clicking next")
+                driver.find_element(By.CLASS_NAME, "next-button").click()
+            else:
+                logging.info(f"waiting for this song to finish")
+                current_url = driver.current_url
+                driver.implicitly_wait(0)
+                WebDriverWait(driver, timeout=500).until(lambda driver: driver.current_url != current_url) # wait for next song to autoplay
+
+    except Exception as e:
+        logging.exception(e)
+        driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+        logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+    
+    logging.info("youtube music done!")
 
 def is_docker():
     path = '/proc/self/cgroup'
@@ -405,7 +458,7 @@ logging.basicConfig(format='%(asctime)s-%(process)d-%(levelname)s:  %(message)s'
 logging.info(f"In docker: {is_docker()}")
 
 driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+# uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
 try:
     # test_get_quic_cloudflare(driver, "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
     # signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
@@ -420,7 +473,8 @@ try:
     # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat")
     # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
     # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
-    test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
+    # test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
+    test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
 
     if not is_docker():
         time.sleep(300) # for development

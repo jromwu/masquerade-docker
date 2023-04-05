@@ -19,7 +19,7 @@ Right now x86 docker images are being used for Selenium. One can switch to Selen
  - [x] Google Hangout call
  - [x] Google Meet meeting
  - [x] Youtube video streaming
- - [ ] Google Play music streaming
+ - [x] Youtube Music (Google Play not available any more) music streaming
  - [ ] Google Drive file download
  - [ ] Applications need to handle and report errors correctly
 - [x] Set up masquerade server for proxy
