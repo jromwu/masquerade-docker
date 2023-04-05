@@ -13,7 +13,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, TimeoutException
 
 CHAT_MIN_WAIT_TIME = 0.01
 CHAT_MAX_WAIT_TIME = 5
@@ -362,6 +362,38 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
     
     logging.info("google meet done!")
 
+def test_youtube_video(driver, dir, watch_length=60):
+    Path(dir).mkdir(parents=True, exist_ok=True)
+    try:
+        driver.get("https://www.youtube.com/")
+        driver.implicitly_wait(2)
+        thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
+        driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
+        thumbnails[1].click() # we can change this to a random video, but it may get short videos
+        driver.save_screenshot(f"{dir}/1-loaded_video.png")
+        metadata = driver.find_element(By.CSS_SELECTOR, "#title.ytd-watch-metadata h1 yt-formatted-string").text
+        logging.info(f"Started watching: {metadata}")
+        try:
+            skip_ad_button = driver.find_element(By.CLASS_NAME, "ytp-ad-skip-button")
+            driver.implicitly_wait(0)
+            skip_ad_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CLASS_NAME, "ytp-ad-skip-button")))
+            skip_ad_button.click()
+            logging.info("Skipped ads")
+        except NoSuchElementException:
+            pass
+        except TimeoutException as e:
+            logging.exception(e)
+            
+        driver.save_screenshot(f"{dir}/2-started_video.png")
+        logging.info(f"Watching for {watch_length} seconds")
+        time.sleep(watch_length)
+    except Exception as e:
+        logging.exception(e)
+        driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+        logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+    
+    logging.info("youtube video done!")
+
 def is_docker():
     path = '/proc/self/cgroup'
     return (
@@ -376,18 +408,19 @@ driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
 uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
 try:
     # test_get_quic_cloudflare(driver, "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
-    signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
-    uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
-    if not signed_in or not uncaptured_signed_in:
-        print("Google is not signed in.")
-        print("Set environment variable CHROME_SETUP=true and attach to noVNC at port 7900 or 7901 to set up Google account. Use defualt password \"secret\".")
-        driver.quit()
-        uncaptured_driver.quit()
-        exit(1)
+    # signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
+    # uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
+    # if not signed_in or not uncaptured_signed_in:
+    #     print("Google is not signed in.")
+    #     print("Set environment variable CHROME_SETUP=true and attach to noVNC at port 7900 or 7901 to set up Google account. Use defualt password \"secret\".")
+    #     driver.quit()
+    #     uncaptured_driver.quit()
+    #     exit(1)
     
     # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat")
     # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
-    test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
+    # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
+    test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
 
     if not is_docker():
         time.sleep(300) # for development

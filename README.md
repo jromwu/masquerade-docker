@@ -15,12 +15,13 @@ Right now x86 docker images are being used for Selenium. One can switch to Selen
 
 ## To-Do
 - [ ] Write application for Selenium Webdriver
- - [ ] Google Hangout chat
- - [ ] Google Hangout call
- - [ ] Google Meet meeting
- - [ ] Youtube video streaming
+ - [x] Google Hangout chat
+ - [x] Google Hangout call
+ - [x] Google Meet meeting
+ - [x] Youtube video streaming
  - [ ] Google Play music streaming
  - [ ] Google Drive file download
+ - [ ] Applications need to handle and report errors correctly
 - [x] Set up masquerade server for proxy
 - [x] Add Selenium Webdriver
 - [ ] Compile curl with QUIC in client
