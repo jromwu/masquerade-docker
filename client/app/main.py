@@ -472,22 +472,25 @@ def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song
 Check if a file with certain prefix is being downloaded in the "chrome://downloads" page.
 
 Returns:
-    False if file is still downloading or have not yet started, 
-    file name downloaded if finished
+    False if file is still downloading or have not yet started, and file name downloaded if finished
+    
+    If check_downloading is True, return True if file has started downloading and False otherwise 
 
 Raises:
   Exception: if downloading is errored or cancelled
 """
 @static_vars(last_downloaded="")
-def is_file_downloaded(driver, file_prefix):
+def is_file_downloaded(driver, file_prefix, check_downloading=False):
         result = driver.execute_script( \
             "let lastDownload = document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList').items[0];"
-            "return [lastDownload.fileName, lastDownload.state];")
+            "return [lastDownload.fileName, lastDownload.state, lastDownload.started];")
         
         file_name = result[0]
         state = result[1]
         if not file_name.startswith(file_prefix) or is_file_downloaded.last_downloaded == file_name:
             return False
+        if check_downloading:
+            return time.time() - result[2] < 60 # only count downloads started within 60 seconds
         if state == "COMPLETE":
             is_file_downloaded.last_downloaded = file_name
             return file_name
@@ -498,8 +501,6 @@ def is_file_downloaded(driver, file_prefix):
 def test_google_file_download(driver, dir, file_link, timeout=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
 
-    # TODO: we cannot detect file download in remote Selenium 
-    
     try:
         driver.get(file_link) # we use this YOASOBI channel because their songs are all without music videos
         driver.implicitly_wait(2)
@@ -517,6 +518,23 @@ def test_google_file_download(driver, dir, file_link, timeout=60):
 
         driver.implicitly_wait(0)
         file_name_without_extension = os.path.splitext(file_name)[0]
+        try:
+            WebDriverWait(driver, 2).until(lambda driver: is_file_downloaded(driver, file_name_without_extension, check_downloading=True))
+        except TimeoutException:
+            # File not yet started download, maybe because virus scan check
+            for handle in driver.window_handles:
+                driver.switch_to.window(handle)
+                if "virus scan" in driver.title.lower():
+                    driver.implicitly_wait(2)
+                    download_anyway_button = driver.find_element(By.CSS_SELECTOR, "input[type='submit']")
+                    download_anyway_button.click()
+                    driver.implicitly_wait(0)
+                    driver.switch_to.window('download_tab')
+                    WebDriverWait(driver, 2).until(lambda driver: is_file_downloaded(driver, file_name_without_extension, check_downloading=True))
+                    driver.switch_to.window(handle)
+                    driver.close()
+                    driver.switch_to.window('download_tab')
+                    break
         file_name_downloaded = WebDriverWait(driver, timeout).until(lambda driver: is_file_downloaded(driver, file_name_without_extension))
         logging.info(f"Finished downloading {file_name} to {file_name_downloaded}")
         driver.save_screenshot(f"{dir}/1-download_finished.png")
@@ -558,9 +576,7 @@ try:
     # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
     # test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
     # test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
-    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
-    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
-    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
+    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=600)
 
     if not is_docker():
         time.sleep(300) # for development
