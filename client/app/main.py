@@ -4,6 +4,7 @@ import time
 import random
 import logging
 import concurrent.futures
+import tempfile
 
 from pathlib import Path
 
@@ -21,7 +22,21 @@ CHAT_MAX_WAIT_TIME = 5
 EMAIL_1 = "masque.traffic.test.0@gmail.com" # TODO: remove hardcoded email
 EMAIL_2 = "masque.traffic.test@gmail.com"   # TODO: remove hardcoded email
 
+GOOGLE_DRIVE_1GB_LINK = "https://drive.google.com/file/d/1jxqVPXaC3_ijbW10Q_iWmGVhW5L39bCk/view?usp=share_link"
+GOOGLE_DRIVE_512MB_LINK = "https://drive.google.com/file/d/1CVl7jyCm_mfYX8qT81Wzlbln1h7ihiiG/view?usp=share_link"
+GOOGLE_DRIVE_256MB_LINK = "https://drive.google.com/file/d/1Zxc9-SA3I9xbyflWe4dYl0eZhAR2zCKx/view?usp=share_link"
+GOOGLE_DRIVE_64MB_LINK = "https://drive.google.com/file/d/1f42zBHJIHjnSWIOIQerGBlWlSIlujMRK/view?usp=share_link"
+GOOGLE_DRIVE_16MB_LINK = "https://drive.google.com/file/d/1sWe3IUOr4Oykj3uqUtQ8k4obbLh7SQWM/view?usp=share_link"
+
 google_chat_frame_selector = "*:not([style*='display: none']) > [aria-label='Chat content']"
+
+# Borrowed from https://stackoverflow.com/questions/279561/what-is-the-python-equivalent-of-static-variables-inside-a-function
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
 
 def get_chrome_driver(remote_addr):
     chrome_options = webdriver.ChromeOptions()
@@ -29,6 +44,12 @@ def get_chrome_driver(remote_addr):
     chrome_options.add_argument("user-data-dir=/user-data")
     chrome_options.add_argument("use-fake-device-for-media-stream")
     chrome_options.add_argument("use-fake-ui-for-media-stream")
+    chrome_options.add_experimental_option("prefs", {
+        "download.prompt_for_download": False,
+        # "download.directory_upgrade": True,
+        "safebrowsing_for_trusted_sources_enabled": False
+        # "safebrowsing.enabled": True
+    })
     driver = webdriver.Remote(
         command_executor=remote_addr,
         options=chrome_options
@@ -447,6 +468,68 @@ def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song
     
     logging.info("youtube music done!")
 
+"""
+Check if a file with certain prefix is being downloaded in the "chrome://downloads" page.
+
+Returns:
+    False if file is still downloading or have not yet started, 
+    file name downloaded if finished
+
+Raises:
+  Exception: if downloading is errored or cancelled
+"""
+@static_vars(last_downloaded="")
+def is_file_downloaded(driver, file_prefix):
+        result = driver.execute_script( \
+            "let lastDownload = document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList').items[0];"
+            "return [lastDownload.fileName, lastDownload.state];")
+        
+        file_name = result[0]
+        state = result[1]
+        if not file_name.startswith(file_prefix) or is_file_downloaded.last_downloaded == file_name:
+            return False
+        if state == "COMPLETE":
+            is_file_downloaded.last_downloaded = file_name
+            return file_name
+        if state == "IN_PROGRESS":
+            return False
+        raise Exception(f"File download failed with state: {state}") 
+
+def test_google_file_download(driver, dir, file_link, timeout=60):
+    Path(dir).mkdir(parents=True, exist_ok=True)
+
+    # TODO: we cannot detect file download in remote Selenium 
+    
+    try:
+        driver.get(file_link) # we use this YOASOBI channel because their songs are all without music videos
+        driver.implicitly_wait(2)
+        # Shuffle play to get randomness
+        download_button = driver.find_element(By.CSS_SELECTOR, "div[aria-label='Download'][role='button']")
+        download_button.click()
+        file_name = driver.title.removesuffix("- Google Drive").strip()
+        logging.info(f"Start downloading {file_name}")
+        driver.save_screenshot(f"{dir}/0-started_download.png")
+
+        driver.execute_script("window.open('', 'download_tab');")
+        driver.switch_to.window('download_tab')
+        driver.get("chrome://downloads/")
+        driver.find_element(By.TAG_NAME, "downloads-manager")
+
+        driver.implicitly_wait(0)
+        file_name_without_extension = os.path.splitext(file_name)[0]
+        file_name_downloaded = WebDriverWait(driver, timeout).until(lambda driver: is_file_downloaded(driver, file_name_without_extension))
+        logging.info(f"Finished downloading {file_name} to {file_name_downloaded}")
+        driver.save_screenshot(f"{dir}/1-download_finished.png")
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+        
+    except Exception as e:
+        logging.exception(e)
+        driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+        logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+    
+    logging.info("google drive download done!")
+
 def is_docker():
     path = '/proc/self/cgroup'
     return (
@@ -474,10 +557,13 @@ try:
     # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
     # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
     # test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
-    test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
+    # test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
+    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
+    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
+    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=120)
 
     if not is_docker():
         time.sleep(300) # for development
 finally:
     driver.quit()
-    uncaptured_driver.quit()
+    # uncaptured_driver.quit()
