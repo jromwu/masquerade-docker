@@ -384,48 +384,71 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
     logging.info("google meet done!")
 
 def skip_or_wait_for_youtube_ads(driver):
-    driver.implicitly_wait(1)
-    try:
-        # if found, there is an ad, if it is skippable, once the skip button appears, this text will be gone
-        ad_indicator = driver.find_element(By.CLASS_NAME, "ytp-ad-preview-text") 
-        logging.info("ads playing")
-        driver.implicitly_wait(0)
-        WebDriverWait(driver, timeout=30).until(expected_conditions.invisibility_of_element_located((By.CLASS_NAME, "ytp-ad-preview-text")))
-        logging.info("ads unskippable part finished")
-    except NoSuchElementException:
-        pass
-    except TimeoutException as e:
-        logging.exception(e)
+    for i in range(4): # Assume there will be no more than 4 ads
+        try:
+            # if found, there is an ad, if it is skippable, once the skip button appears, this text will be gone
+            driver.implicitly_wait(1)
+            ad_indicator = driver.find_element(By.CLASS_NAME, "ytp-ad-preview-text") 
+            logging.info("ads playing")
+            driver.implicitly_wait(0)
+            WebDriverWait(driver, timeout=30).until(expected_conditions.invisibility_of_element_located((By.CLASS_NAME, "ytp-ad-preview-text")))
+            logging.info("ads unskippable part finished")
+        except NoSuchElementException:
+            break
+        except TimeoutException as e:
+            logging.exception(e)
+            break
 
-    try:
-        skip_ad_button = driver.find_element(By.CLASS_NAME, "ytp-ad-skip-button") # if found, there is a skip button
-        driver.implicitly_wait(0)
-        skip_ad_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CLASS_NAME, "ytp-ad-skip-button")))
-        skip_ad_button.click()
-        logging.info("ads skipped")
-    except NoSuchElementException:
-        pass
-    except TimeoutException as e:
-        logging.exception(e)
+        try:
+            driver.implicitly_wait(1)
+            skip_ad_button = driver.find_element(By.CLASS_NAME, "ytp-ad-skip-button") # if found, there is a skip button
+            driver.implicitly_wait(0)
+            skip_ad_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CLASS_NAME, "ytp-ad-skip-button")))
+            skip_ad_button.click()
+            logging.info("ads skipped")
+            break
+        except NoSuchElementException:
+            pass
+        except TimeoutException as e:
+            logging.exception(e)
+            break
 
     logging.info("ads finished")
 
-def test_youtube_video(driver, dir, watch_length=60):
+def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_length=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
         driver.get("https://www.youtube.com/")
         driver.implicitly_wait(2)
+        try:
+            cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
+            cookies_button.click()
+        except NoSuchElementException:
+            pass
         thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
         driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
         thumbnails[1].click() # we can change this to a random video, but it may get short videos
         driver.save_screenshot(f"{dir}/1-loaded_video.png")
-        metadata = driver.find_element(By.CSS_SELECTOR, "#title.ytd-watch-metadata h1 yt-formatted-string").text
-        logging.info(f"Started watching: {metadata}")
-        skip_or_wait_for_youtube_ads(driver)
+
+        for i in range(num_video):
+            driver.save_screenshot(f"{dir}/2-started_video-{i}.png")
+            skip_or_wait_for_youtube_ads(driver)
+            driver.implicitly_wait(2)
+            metadata = driver.find_element(By.CSS_SELECTOR, "#title.ytd-watch-metadata h1 yt-formatted-string").text
+            logging.info(f"Started watching video {i}: {metadata}")
+            watch_time = random.uniform(min_watch_length, max_watch_length)
+            logging.info(f"Watch for {watch_time} seconds")
+            try:
+                current_url = driver.current_url
+                driver.implicitly_wait(0)
+                WebDriverWait(driver, timeout=watch_time).until(lambda driver: driver.current_url != current_url) # wait for next song to autoplay
+                logging.info(f"Video {i} finished before timeout.")
+            except TimeoutException:
+                logging.info(f"Getting the next video")
+                driver.implicitly_wait(2)
+                next_button = driver.find_element(By.CLASS_NAME, "ytp-next-button")
+                next_button.click()
             
-        driver.save_screenshot(f"{dir}/2-started_video.png")
-        logging.info(f"Watching for {watch_length} seconds")
-        time.sleep(watch_length)
     except Exception as e:
         logging.exception(e)
         driver.save_screenshot(f"{dir}/x-exception_thrown.png")
@@ -574,9 +597,9 @@ try:
     # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat")
     # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
     # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
-    # test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", watch_length=20)
+    test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=30, max_watch_length=120)
     # test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
-    test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=600)
+    # test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=600)
 
     if not is_docker():
         time.sleep(300) # for development
