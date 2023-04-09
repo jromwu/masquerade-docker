@@ -81,6 +81,7 @@ services:
       # - FIREFOX_DRIVER_ADDR=http://firefox:4444
       - CAPTURES_DIR=/usr/captures
       - CHROME_SETUP=${CHROME_SETUP}
+      - TARGET=${TARGET}
     cap_add:
       - NET_ADMIN
     networks:
