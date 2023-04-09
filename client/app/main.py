@@ -16,9 +16,6 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, TimeoutException
 
-CHAT_MIN_WAIT_TIME = 0.01
-CHAT_MAX_WAIT_TIME = 5
-
 EMAIL_1 = "masque.traffic.test.0@gmail.com" # TODO: remove hardcoded email
 EMAIL_2 = "masque.traffic.test@gmail.com"   # TODO: remove hardcoded email
 
@@ -148,7 +145,7 @@ def setup_google_hangouts_chat(driver, dir, target_email):
         driver.save_screenshot("{}/x-element_not_found.png".format(dir))
         logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
 
-def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, max_length=100):
+def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, max_length=100, min_wait=0.01, max_wait=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
 
     def send_chat_messages(driver, dir, num_msgs, min_length, max_length):
@@ -157,13 +154,13 @@ def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, m
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             for i in range(0, num_msgs):
+                time.sleep(random.uniform(min_wait, max_wait))
                 logging.info(f"sending message {i}")
                 chat_input = driver.find_element(By.CSS_SELECTOR, "[role=textbox]")
                 random_string = ''.join(random.choice(string.digits + string.ascii_letters + string.punctuation + " ") for _ in range(random.randint(min_length, max_length)))
                 chat_input.send_keys(f"Hello! This is test message {i} {random_string}")
                 driver.save_screenshot(f"{dir}/2-entered_message_{i}.png")
                 chat_input.send_keys(Keys.ENTER)
-                time.sleep(random.uniform(CHAT_MIN_WAIT_TIME, CHAT_MAX_WAIT_TIME))
             driver.save_screenshot(f"{dir}/3-sent_messages.png")
             driver.switch_to.default_content()
         except NoSuchElementException as e:
@@ -184,6 +181,18 @@ def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, m
     
     logging.info("google hangouts chat done!")
 
+def wait(driver, dir, length):
+    # Selenium session will timeout and exit after ~5 minutes of inactivity,
+    # so we save a screenshot every TIMEOUT_LENGTH to avoid this.
+    TIMEOUT_LENGTH = 250 
+    driver.save_screenshot(f"{dir}/y-keep_alive.png")
+    while length > TIMEOUT_LENGTH:
+        time.sleep(TIMEOUT_LENGTH)
+        logging.info("waking up to keep Selenium session alive")
+        length -= TIMEOUT_LENGTH
+        driver.save_screenshot(f"{dir}/y-keep_alive.png")
+    time.sleep(length)
+
 def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     Path(dir).mkdir(parents=True, exist_ok=True)
 
@@ -193,16 +202,16 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             # for some reason, the call button is not present for some Google account
-            start_call_button = driver.find_element(By.CSS_SELECTOR, "div[role='button'][aria-label*='Start a video call']:not([aria-disabled='true'])")
+            driver.implicitly_wait(0)
+            start_call_button = WebDriverWait(driver, timeout=10).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "div[role='button'][aria-label*='Start a video call']:not([aria-disabled='true'])")))
             start_call_button.click()
             
             driver.save_screenshot(f"{dir}/2-initiated_call.png")
             driver.switch_to.default_content()
-        except NoSuchElementException as e:
-            logging.warning("element not found")
+        except Exception as e:
             logging.exception(e)
-            driver.save_screenshot("{}/x-element_not_found.png".format(dir))
-            logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
 
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -218,11 +227,10 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             driver.save_screenshot(f"{dir}/2-accepted_call.png")
             driver.implicitly_wait(2)
             driver.switch_to.default_content()
-        except NoSuchElementException as e:
-            logging.warning("element not found")
+        except Exception as e:
             logging.exception(e)
-            driver.save_screenshot("{}/x-element_not_found.png".format(dir))
-            logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+            driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+            logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
     
     def stop_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -265,7 +273,10 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
         driver2.save_screenshot(f"{dir}/call-2/3-call_established.png")
         logging.info("google hangouts call established!")
         logging.info(f"call will last {call_length} seconds")
-        time.sleep(call_length)
+        wait_future_1 = executor.submit(wait, driver1, f"{dir}/call-1/", call_length)
+        wait_future_2 = executor.submit(wait, driver2, f"{dir}/call-2/", call_length)
+        wait_future_1.result()
+        wait_future_2.result()
         driver1.save_screenshot(f"{dir}/call-1/4-call_about_to_end.png")
         driver2.save_screenshot(f"{dir}/call-2/4-call_about_to_end.png")
         if bool(random.getrandbits(1)):
@@ -275,7 +286,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             stop_call(driver2, f"{dir}/call-2")
             logging.info("google hangouts call hanged by driver 2!")
     
-    logging.info("google hangouts chat done!")
+    logging.info("google hangouts call done!")
 
 # It's worth noting that Google Hangouts calls are now also powered by Google Meet
 def test_google_meet(driver1, driver2, dir, meet_length=30):
@@ -300,8 +311,8 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
 
-        if meeting_link is None:
-            meeting_link = driver.current_url
+        # if meeting_link is None:
+        #     meeting_link = driver.current_url
         if not meeting_link.startswith('http'):
             meeting_link = 'https://' + meeting_link
         return meeting_link
@@ -309,14 +320,14 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
     def accept_join(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
-            driver.implicitly_wait(1)
-            try:
-                # Maybe a warning will pop up, click the "Got it" button to dismiss it
-                got_it_button = driver.find_element(By.XPATH, "//button[./span[text()='Got it']]")
-                got_it_button.click()
-            except NoSuchElementException as e:
-                pass
             driver.implicitly_wait(0)
+            try:
+                # Maybe warnings and notifications will pop up, click the "Got it" buttons to dismiss them
+                while True:
+                    got_it_button = WebDriverWait(driver, timeout=3).until(expected_conditions.element_to_be_clickable((By.XPATH, "//button[./span[text()='Got it']]")))
+                    got_it_button.click()
+            except (NoSuchElementException, TimeoutException) as e:
+                pass
             accept_button = WebDriverWait(driver, timeout=30).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[data-mdc-dialog-action='accept']")))
             accept_button.click()
             driver.save_screenshot(f"{dir}/2-accepted_participant.png")
@@ -373,7 +384,10 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
         driver1.save_screenshot(f"{dir}/during_meeting_1/3-meeting_in_progress.png")
         driver2.save_screenshot(f"{dir}/during_meeting_2/3-meeting_in_progress.png")
         logging.info(f"The meeting will last {meet_length} seconds")
-        time.sleep(meet_length)
+        wait_future_1 = executor.submit(wait, driver1, f"{dir}/during_meeting_1/", meet_length)
+        wait_future_2 = executor.submit(wait, driver2, f"{dir}/during_meeting_2/", meet_length)
+        wait_future_1.result()
+        wait_future_2.result()
         driver1.save_screenshot(f"{dir}/during_meeting_1/4-meeting_about_to_end.png")
         driver2.save_screenshot(f"{dir}/during_meeting_2/4-meeting_about_to_end.png")
         exit_future_1 = executor.submit(exit_meeting, driver1, f"{dir}/during_meeting_1")
@@ -582,7 +596,7 @@ logging.basicConfig(format='%(asctime)s-%(process)d-%(levelname)s:  %(message)s'
 logging.info(f"In docker: {is_docker()}")
 
 driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-# uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
 try:
     # test_get_quic_cloudflare(driver, "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
     # signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
@@ -594,10 +608,10 @@ try:
     #     uncaptured_driver.quit()
     #     exit(1)
     
-    # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat")
-    # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=20)
-    # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=20)
-    test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=30, max_watch_length=120)
+    # test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=100, min_wait=0.01, max_wait=60)
+    # test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=1200)
+    # test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=1200)
+    test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240)
     # test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music")
     # test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=600)
 
@@ -605,4 +619,4 @@ try:
         time.sleep(300) # for development
 finally:
     driver.quit()
-    # uncaptured_driver.quit()
+    uncaptured_driver.quit()
