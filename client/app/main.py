@@ -151,6 +151,7 @@ def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, m
     def send_chat_messages(driver, dir, num_msgs, min_length, max_length):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            driver.implicitly_wait(2)
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             for i in range(0, num_msgs):
@@ -199,6 +200,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            driver.implicitly_wait(2)
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             # for some reason, the call button is not present for some Google account
@@ -216,6 +218,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            driver.implicitly_wait(2)
             call_frame = driver.find_element(By.NAME, "pip_frame")
             driver.switch_to.frame(call_frame)
 
@@ -235,6 +238,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def stop_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            driver.implicitly_wait(2)
             call_frame = driver.find_element(By.NAME, "pip_frame")
             driver.switch_to.frame(call_frame)
 
@@ -520,8 +524,11 @@ Raises:
 def is_file_downloaded(driver, file_prefix, check_downloading=False):
         result = driver.execute_script( \
             "let lastDownload = document.querySelector('downloads-manager').shadowRoot.querySelector('#downloadsList').items[0];"
+            r"if (!lastDownload) { return false; }"
             "return [lastDownload.fileName, lastDownload.state, lastDownload.started];")
         
+        if result == False: # no file downloaded/downloading
+            return False
         file_name = result[0]
         state = result[1]
         if not file_name.startswith(file_prefix) or is_file_downloaded.last_downloaded == file_name:
