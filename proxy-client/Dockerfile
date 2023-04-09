@@ -16,4 +16,4 @@ RUN apt-get install -y net-tools tcpdump
 
 COPY configure.sh /
 
-CMD /configure.sh; echo hello world; RUST_LOG="debug" cargo run --bin client -- "$SERVER_ADDR" "$LISTEN_ADDR" socks5 > /log/client-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null
+CMD /configure.sh; echo hello world; RUST_LOG="debug" cargo run --bin client -- "$SERVER_ADDR" "$LISTEN_ADDR" socks5 > /log/client.log 2>&1; tail -f /dev/null
