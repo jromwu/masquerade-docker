@@ -214,6 +214,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
 
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -234,6 +235,7 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
     
     def stop_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -314,6 +316,7 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
 
         # if meeting_link is None:
         #     meeting_link = driver.current_url
@@ -339,6 +342,7 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
     
     def join_meeting(driver, dir, link):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -356,6 +360,7 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
 
     def exit_meeting(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
@@ -368,6 +373,7 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.exception(e)
             driver.save_screenshot(f"{dir}/x-exception_thrown.png")
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+            raise e
     
     with concurrent.futures.ThreadPoolExecutor() as executor:
         if bool(random.getrandbits(1)):
@@ -471,6 +477,7 @@ def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_
         logging.exception(e)
         driver.save_screenshot(f"{dir}/x-exception_thrown.png")
         logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+        raise e
     
     logging.info("youtube video done!")
 
@@ -506,6 +513,7 @@ def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song
         logging.exception(e)
         driver.save_screenshot(f"{dir}/x-exception_thrown.png")
         logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+        raise e
     
     logging.info("youtube music done!")
 
@@ -589,6 +597,7 @@ def test_google_file_download(driver, dir, file_link, timeout=60):
         logging.exception(e)
         driver.save_screenshot(f"{dir}/x-exception_thrown.png")
         logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+        raise e
     
     logging.info("google drive download done!")
 
@@ -613,11 +622,23 @@ try:
         case "setup":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+            signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
+            uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
+            if not signed_in or not uncaptured_signed_in:
+                print("Google is not signed in.")
+                print("Set environment variable CHROME_SETUP=true and attach to noVNC at port 7900 or 7901 to set up Google account. Use defualt password \"secret\".")
+                driver.quit()
+                uncaptured_driver.quit()
+                exit(1)
+        case "test":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_get_quic_cloudflare(driver, "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=2, min_watch_length=5, max_watch_length=10)
             test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=3, min_song_listen_time=5, max_song_listen_time=10, chance_to_next_song=1)
             test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_16MB_LINK, timeout=60)
-
+        case "test_google":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
             signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
             uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
             if not signed_in or not uncaptured_signed_in:
@@ -633,7 +654,7 @@ try:
         case "chat":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
-            test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=100, min_wait=0.01, max_wait=30)
+            test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=200, min_wait=0.01, max_wait=30)
         case "call":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
@@ -641,7 +662,7 @@ try:
         case "meet":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
-            test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=1200)
+            test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=2400)
         case "youtube_video":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240)
