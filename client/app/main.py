@@ -195,6 +195,7 @@ def wait(driver, dir, length):
         driver.save_screenshot(f"{dir}/y-keep_alive.png")
     time.sleep(length)
 
+# TODO: detect and click "dismiss" or "not now"
 def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     Path(dir).mkdir(parents=True, exist_ok=True)
 
@@ -220,14 +221,28 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
-            driver.implicitly_wait(2)
-            call_frame = driver.find_element(By.NAME, "pip_frame")
-            driver.switch_to.frame(call_frame)
 
-            driver.implicitly_wait(0)
-            join_button = WebDriverWait(driver, timeout=30).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Answer call']")))
-            join_button.click()
-            # driver.execute_script("arguments[0].click();", join_button)
+            try:
+                driver.implicitly_wait(0)
+                join_button = WebDriverWait(driver, timeout=15).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Answer call']")))
+                join_button.click()
+            except TimeoutException:
+                driver.switch_to.default_content()
+                driver.implicitly_wait(2)
+                chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
+                driver.switch_to.frame(chat_frame)
+                driver.implicitly_wait(0)
+                join_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "[aria-label='Join']")))
+                join_button.click()
+
+                driver.switch_to.default_content()
+                driver.implicitly_wait(2)
+                call_frame = driver.find_element(By.NAME, "pip_frame")
+                driver.switch_to.frame(call_frame)
+
+                driver.implicitly_wait(0)
+                join_button_pip = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Join']")))
+                join_button_pip.click()
             
             driver.save_screenshot(f"{dir}/2-accepted_call.png")
             driver.implicitly_wait(2)
@@ -667,17 +682,17 @@ try:
         case "call":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
-            test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=1200)
+            test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=2400)
         case "meet":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
             test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=2400)
         case "video":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240)
+            test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240) # about 30 mins to finish
         case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3)
+            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_1GB_LINK, timeout=3600)
