@@ -596,7 +596,7 @@ def test_google_file_download(driver, dir, file_link, timeout=60):
                     driver.close()
                     driver.switch_to.window('download_tab')
                     break
-        file_name_downloaded = WebDriverWait(driver, timeout).until(lambda driver: is_file_downloaded(driver, file_name_without_extension))
+        file_name_downloaded = WebDriverWait(driver, timeout=timeout, poll_frequency=5).until(lambda driver: is_file_downloaded(driver, file_name_without_extension))
         logging.info(f"Finished downloading {file_name} to {file_name_downloaded}")
         driver.save_screenshot(f"{dir}/1-download_finished.png")
         driver.close()

@@ -5,6 +5,9 @@ log/proxy/*
 chrome_user_data/*
 chrome_uncaptured_user_data/*
 
+remove_to_terminate
+run_progress
+
 proxy-client/masquerade
 
 # Byte-compiled / optimized / DLL files
