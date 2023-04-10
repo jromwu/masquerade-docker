@@ -37,6 +37,7 @@ def static_vars(**kwargs):
 
 def get_chrome_driver(remote_addr):
     chrome_options = webdriver.ChromeOptions()
+    # chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("enable-quic")
     chrome_options.add_argument("user-data-dir=/user-data")
     chrome_options.add_argument("use-fake-device-for-media-stream")
@@ -344,10 +345,9 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
             raise e
     
-    def join_meeting(driver, dir, link):
+    def join_meeting(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
-            driver.get(link)
             driver.implicitly_wait(2)
             # maybe a microphone popup will appear, use selector "div[aria-modal='true'] button" to click dismiss
             ask_to_join_button = driver.find_element(By.XPATH, "//button[./span[text()='Ask to join']]")
@@ -380,13 +380,15 @@ def test_google_meet(driver1, driver2, dir, meet_length=30):
             logging.info(f"Meeting being created by driver 1")
             meeting_link = create_meeting(driver1, f"{dir}/create_meeting")
             logging.info(f"Meeting at {meeting_link} being joined by driver 2")
-            join_future = executor.submit(join_meeting, driver2, f"{dir}/join_meeting", meeting_link)
+            driver2.get(meeting_link)
+            join_future = executor.submit(join_meeting, driver2, f"{dir}/join_meeting")
             accept_future = executor.submit(accept_join, driver1, f"{dir}/create_meeting")
         else:
             logging.info(f"Meeting being created by driver 2")
             meeting_link = create_meeting(driver2, f"{dir}/create_meeting")
             logging.info(f"Meeting at {meeting_link} being joined by driver 1")
-            join_future = executor.submit(join_meeting, driver1, f"{dir}/join_meeting", meeting_link)
+            driver1.get(meeting_link)
+            join_future = executor.submit(join_meeting, driver1, f"{dir}/join_meeting")
             accept_future = executor.submit(accept_join, driver2, f"{dir}/create_meeting")
         join_future.result()
         accept_future.result()
@@ -676,6 +678,9 @@ try:
         case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3)
+        case "file":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_1GB_LINK, timeout=3600)
         case _:
             logging.warning("TARGET not set.")
 

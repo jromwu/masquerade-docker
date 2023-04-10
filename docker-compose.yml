@@ -72,7 +72,7 @@ services:
 
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; python3 ./main.py; sleep 10"
+    command: sh -c "./configure.sh; echo hello world; python3 ./main.py"
     volumes:
       - ./captures:/usr/captures
     environment:
