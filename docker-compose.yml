@@ -19,7 +19,7 @@ services:
   capturer:
     build: capturer
     # command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap udp; tail -f /dev/null"
+    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/$TARGET-capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap udp; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
     networks:
@@ -96,7 +96,7 @@ services:
 
   chrome:
     build: chrome
-    command: sh -c "./configure_route.sh && ./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
+    command: sh -c "./configure_route.sh && ./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
     ports:
       - "4444:4444" # for development
       - "7900:7900" # for novnc

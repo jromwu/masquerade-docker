@@ -654,7 +654,7 @@ try:
         case "chat":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
-            test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=200, min_wait=0.01, max_wait=30)
+            test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=100, min_wait=0.01, max_wait=30)
         case "call":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
@@ -663,10 +663,10 @@ try:
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
             test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=2400)
-        case "youtube_video":
+        case "video":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240)
-        case "youtube_music":
+        case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.6)
         case _:
