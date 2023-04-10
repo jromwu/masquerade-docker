@@ -485,13 +485,12 @@ def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
         driver.get("https://music.youtube.com/channel/UCI6B8NkZKqlFWoiC_xE-hzA") # we use this YOASOBI channel because their songs are all without music videos
-        driver.implicitly_wait(2)
-        try:
-            cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
-            cookies_button.click()
-        except NoSuchElementException:
-            pass
         driver.implicitly_wait(0)
+        try:
+            cookies_button = WebDriverWait(driver, timeout=2).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "form button[aria-label*='Reject all']")))
+            cookies_button.click()
+        except (NoSuchElementException, TimeoutException):
+            pass
         # Shuffle play to get randomness
         shuffle_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, ".play-button button[aria-label='Shuffle']")))
         shuffle_button.click()
