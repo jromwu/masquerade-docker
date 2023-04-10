@@ -484,15 +484,17 @@ def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_
 def test_youtube_music(driver, dir, num_song=3, min_song_listen_time=0, max_song_listen_time=60, chance_to_next_song=0.7):
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
-        driver.get("https://music.youtube.com/channel/UCI6B8NkZKqlFWoiC_xE-hzA") # we use this YOASOBI channel because their songs are all without music videos
+        driver.get("https://music.youtube.com/channel/UCI6B8NkZKqlFWoiC_xE-hzA") # we can use this YOASOBI channel because their songs are all without music videos
+        # driver.get("https://music.youtube.com/playlist?list=PLTKjnpVikK4zU42ASxX3_1Nb4Z9CttFyz") # or we can get a large playlist and let it shuffle play
         driver.implicitly_wait(0)
+        
         try:
             cookies_button = WebDriverWait(driver, timeout=2).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "form button[aria-label*='Reject all']")))
             cookies_button.click()
         except (NoSuchElementException, TimeoutException):
             pass
         # Shuffle play to get randomness
-        shuffle_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, ".play-button button[aria-label='Shuffle']")))
+        shuffle_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Shuffle']")))
         shuffle_button.click()
         driver.save_screenshot(f"{dir}/1-loaded.png")
         for i in range(num_song):
@@ -673,7 +675,7 @@ try:
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240)
         case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.6)
+            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3)
         case _:
             logging.warning("TARGET not set.")
 
