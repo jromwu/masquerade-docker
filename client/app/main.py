@@ -466,7 +466,7 @@ def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_
             cookies_button.click()
         except NoSuchElementException:
             pass
-        thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
+        thumbnails = driver.find_elements(By.CSS_SELECTOR, "ytd-thumbnail:has(.yt-core-image--loaded)")
         driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
         thumbnails[1].click() # we can change this to a random video, but it may get short videos
         driver.save_screenshot(f"{dir}/1-loaded_video.png")
