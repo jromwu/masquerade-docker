@@ -692,7 +692,7 @@ try:
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240) # about 30 mins to finish
         case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
+            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=20, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_1GB_LINK, timeout=3600)

@@ -1,102 +1,24 @@
 services:
-  gateway:
-    build: gateway
-    command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
-    # command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/gateway-in-$(date +%Y-%m-%d-%H-%M-%S).pcap & tcpdump -i eth0 -n -U -w /pcap/gateway-out-$(date +%Y-%m-%d-%H-%M-%S).pcap; tail -f /dev/null"
-    volumes:
-      - ./pcap:/pcap
-      - ./log/gateway:/log
-    environment:
-      - SOCKS_HOST=proxy
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - gateway_external # eth0
-      - gateway_internal # eth1
-    depends_on:
-      - proxy
-
-  capturer:
-    build: capturer
-    # command: sh -c "./configure.sh; echo hello world; tail -f /dev/null"
-    command: sh -c "./configure.sh; echo hello world; tcpdump -i eth1 -n -U -w /pcap/$TARGET-capturer-$(date +%Y-%m-%d-%H-%M-%S).pcap udp; tail -f /dev/null"
-    volumes:
-      - ./pcap:/pcap
-    networks:
-      - capturer_external # eth0
-      - proxy_external # eth1
-    cap_add:
-      - NET_ADMIN
-
-  # proxy:
-  #   build: proxy-example
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     gateway_external:   # eth0
-  #     proxy_external:     # eth1
-  #       ipv4_address: 172.21.0.10 # for 3proxy
-  #   depends_on:
-  #     - capturer
-
-  proxy:
-    build: proxy-client
-    volumes:
-      - ./log/proxy:/log
-    environment:
-      - LISTEN_ADDR=172.20.0.10:8899
-      - SERVER_ADDR=172.22.0.11:4433
-    cap_add:
-      - NET_ADMIN
-    networks:
-      gateway_external: # eth0
-        ipv4_address: 172.20.0.10
-      proxy_external:   # eth1
-    depends_on:
-      - capturer
-      - proxy-server
-
-  proxy-server:
-    # build: proxy-server
-    build: proxy-client
-    command: sh -c "echo hello world; RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server.log 2>&1; tail -f /dev/null"
-    # command: sh -c "tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & echo hello world; RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null"
-    volumes:
-      - ./pcap:/pcap
-      - ./log/proxy:/log
-    environment:
-      - LISTEN_ADDR=172.22.0.11:4433
-    networks:
-      capturer_external:
-        ipv4_address: 172.22.0.11
-
   client:
     build: client
-    command: sh -c "./configure.sh; echo hello world; python3 ./main.py"
+    command: sh -c "echo hello world; python3 ./main.py"
     volumes:
       - ./captures:/usr/captures
     environment:
       - CHROME_DRIVER_ADDR=http://chrome:4444
       - CHROME_UNCAPTURED_DRIVER_ADDR=http://chrome_uncaptured:4444
-      # - FIREFOX_DRIVER_ADDR=http://firefox:4444
       - CAPTURES_DIR=/usr/captures
       - CHROME_SETUP=${CHROME_SETUP}
       - TARGET=${TARGET}
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - gateway_internal
     depends_on:
       chrome:
         condition: service_healthy
       chrome_uncaptured:
         condition: service_healthy
-      # firefox:
-      #   condition: service_healthy
 
   chrome:
     build: chrome
-    command: sh -c "./configure_route.sh && ./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
+    command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-1-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
     ports:
       - "4444:4444" # for development
       - "7900:7900" # for novnc
@@ -104,12 +26,6 @@ services:
       - ./pcap:/pcap
       - ./chrome_user_data:/user-data
       - /dev/shm:/dev/shm
-    cap_add:
-      - NET_ADMIN
-    networks:
-      - gateway_internal
-    depends_on:
-      - gateway
     shm_size: '2gb'
     healthcheck:
       test: curl -f http://localhost:4444 || exit 1
@@ -120,8 +36,7 @@ services:
 
   chrome_uncaptured:
     build: chrome
-    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
-    # command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & curl example.com; /opt/bin/entry_point.sh"
+    command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-2-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
     ports:
       - "4445:4444" # for development
       - "7901:7900" # for novnc
@@ -129,8 +44,6 @@ services:
       - ./pcap:/pcap
       - ./chrome_uncaptured_user_data:/user-data
       - /dev/shm:/dev/shm
-    networks:
-      - gateway_internal
     shm_size: '2gb'
     healthcheck:
       test: curl -f http://localhost:4444 || exit 1
@@ -138,46 +51,3 @@ services:
       timeout: 2s
       retries: 5
       start_period: 20s
-
-  # firefox:
-  #   build: firefox
-  #   command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
-  #   ports:
-  #     - "4446:4444" # for development
-  #   volumes:
-  #     - /dev/shm:/dev/shm
-  #   cap_add:
-  #     - NET_ADMIN
-  #   networks:
-  #     - gateway_internal
-  #   depends_on:
-  #     - gateway
-  #   shm_size: '2gb'
-  #   healthcheck:
-  #     test: curl -f http://localhost:4444 || exit 1
-  #     interval: 10s
-  #     timeout: 2s
-  #     retries: 5
-  #     start_period: 20s
-
-networks:
-  capturer_external:
-    driver: bridge
-    ipam: 
-      driver: default
-      config: 
-        - subnet: 172.22.0.0/16
-  proxy_external:
-    driver: bridge
-    ipam: 
-      driver: default
-      config: 
-        - subnet: 172.21.0.0/16
-  gateway_external:
-    driver: bridge
-    ipam: 
-      driver: default
-      config: 
-        - subnet: 172.20.0.0/16
-  gateway_internal:
-    driver: bridge
