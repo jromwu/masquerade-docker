@@ -108,7 +108,7 @@ def test_google_signin(driver, dir):
 
     return True
 
-def setup_google_hangouts_chat(driver, dir, target_email):
+def setup_google_hangouts(driver, dir, target_email):
     Path(dir).mkdir(parents=True, exist_ok=True)
     driver.get("https://hangouts.google.com/")
 
@@ -126,8 +126,8 @@ def setup_google_hangouts_chat(driver, dir, target_email):
             close_button.click()
         except NoSuchElementException as e:
             logging.debug("element not found: {}".format(e))
-        driver.implicitly_wait(2)            
             
+        driver.implicitly_wait(2)      
         plus_button = driver.find_element(By.XPATH, "//div[@aria-label='Start a chat']")
         driver.save_screenshot("{}/0-loaded.png".format(dir))
         plus_button.click()
@@ -137,14 +137,20 @@ def setup_google_hangouts_chat(driver, dir, target_email):
         addr_input.send_keys(target_email) 
         addr_input.send_keys(Keys.ENTER)
         driver.save_screenshot("{}/1-entered_addr.png".format(dir))
-        start_chat_button = driver.find_element(By.CSS_SELECTOR, "[role=button]")
-        start_chat_button.click()
+        driver.implicitly_wait(0)
+        try:
+            while True:
+                start_chat_button = WebDriverWait(driver, timeout=3).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "[role=button]")))
+                start_chat_button.click()
+        except (NoSuchElementException, TimeoutException) as e:
+            pass
         driver.switch_to.default_content()
     except NoSuchElementException as e:
         logging.warning("element not found")
         logging.exception(e)
         driver.save_screenshot("{}/x-element_not_found.png".format(dir))
         logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+        raise e
 
 def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, max_length=100, min_wait=0.01, max_wait=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
@@ -170,10 +176,11 @@ def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, m
             logging.exception(e)
             driver.save_screenshot("{}/x-element_not_found.png".format(dir))
             logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+            raise e
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        setup_future_1 = executor.submit(setup_google_hangouts_chat, driver1, f"{dir}/setup-1", EMAIL_2)
-        setup_future_2 = executor.submit(setup_google_hangouts_chat, driver2, f"{dir}/setup-2", EMAIL_1)
+        setup_future_1 = executor.submit(setup_google_hangouts, driver1, f"{dir}/setup-1", EMAIL_2)
+        setup_future_2 = executor.submit(setup_google_hangouts, driver2, f"{dir}/setup-2", EMAIL_1)
         setup_future_1.result()
         setup_future_2.result()
         chat_future_1 = executor.submit(send_chat_messages, driver1, f"{dir}/chat-1", num_msgs, min_length, max_length)
@@ -198,15 +205,25 @@ def wait(driver, dir, length):
 # TODO: detect and click "dismiss" or "not now"
 def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     Path(dir).mkdir(parents=True, exist_ok=True)
+    def dismiss_pop_ups(driver, timeout=2):
+        try:
+            # Maybe warnings and notifications will pop up, click the "Got it/Dismiss/Not now" buttons to dismiss them
+            while True:
+                got_it_button = WebDriverWait(driver, timeout=timeout).until(expected_conditions.element_to_be_clickable((By.XPATH, "//button[.='Got it' or .='Dismiss' or .='Not now' or .='No, thanks']")))
+                got_it_button.click()
+        except (NoSuchElementException, TimeoutException) as e:
+            pass
 
     def call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            dismiss_pop_ups(driver)
             driver.implicitly_wait(2)
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             # for some reason, the call button is not present for some Google account
             driver.implicitly_wait(0)
+            dismiss_pop_ups(driver)
             start_call_button = WebDriverWait(driver, timeout=10).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "div[role='button'][aria-label*='Start a video call']:not([aria-disabled='true'])")))
             start_call_button.click()
             
@@ -221,17 +238,22 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
-
             try:
+                dismiss_pop_ups(driver)
+                driver.implicitly_wait(15)
+                call_frame = driver.find_element(By.NAME, "pip_frame")
+                driver.switch_to.frame(call_frame)
                 driver.implicitly_wait(0)
                 join_button = WebDriverWait(driver, timeout=15).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Answer call']")))
                 join_button.click()
             except TimeoutException:
                 driver.switch_to.default_content()
+                dismiss_pop_ups(driver)
                 driver.implicitly_wait(2)
                 chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
                 driver.switch_to.frame(chat_frame)
                 driver.implicitly_wait(0)
+                dismiss_pop_ups(driver)
                 join_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "[aria-label='Join']")))
                 join_button.click()
 
@@ -277,8 +299,8 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        setup_future_1 = executor.submit(setup_google_hangouts_chat, driver1, f"{dir}/setup-1", EMAIL_2)
-        setup_future_2 = executor.submit(setup_google_hangouts_chat, driver2, f"{dir}/setup-2", EMAIL_1)
+        setup_future_1 = executor.submit(setup_google_hangouts, driver1, f"{dir}/setup-1", EMAIL_2)
+        setup_future_2 = executor.submit(setup_google_hangouts, driver2, f"{dir}/setup-2", EMAIL_1)
         setup_future_1.result()
         setup_future_2.result()
         if bool(random.getrandbits(1)):
@@ -675,6 +697,19 @@ try:
                 test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=2, min_wait=0.01, max_wait=3)
                 test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=10)
                 test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=10)
+        case "test_meet":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+            signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
+            uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
+            if not signed_in or not uncaptured_signed_in:
+                print("Google is not signed in.")
+                print("Set environment variable CHROME_SETUP=true and attach to noVNC at port 7900 or 7901 to set up Google account. Use defualt password \"secret\".")
+                driver.quit()
+                uncaptured_driver.quit()
+                exit(1)
+            else:
+                test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=10)
         case "chat":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
@@ -702,7 +737,9 @@ try:
     if not is_docker():
         time.sleep(300) # for development
 finally:
-    if driver is not None:
-        driver.quit()
-    if uncaptured_driver is not None:
-        uncaptured_driver.quit()
+    try:
+        if driver is not None:
+            driver.quit()
+    finally:
+        if uncaptured_driver is not None:
+            uncaptured_driver.quit()
