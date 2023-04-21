@@ -44,9 +44,10 @@ def get_chrome_driver(remote_addr):
     chrome_options.add_argument("use-fake-ui-for-media-stream")
     chrome_options.add_experimental_option("prefs", {
         "download.prompt_for_download": False,
-        # "download.directory_upgrade": True,
-        "safebrowsing_for_trusted_sources_enabled": False
-        # "safebrowsing.enabled": True
+        "download.directory_upgrade": True,
+        # "download.default_directory": r"/tmp",
+        # "safebrowsing_for_trusted_sources_enabled": False, 
+        # "safebrowsing.enabled": True, 
     })
     driver = webdriver.Remote(
         command_executor=remote_addr,
@@ -481,16 +482,19 @@ def skip_or_wait_for_youtube_ads(driver):
 def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_length=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
-        driver.get("https://www.youtube.com/")
         driver.implicitly_wait(2)
-        try:
-            cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
-            cookies_button.click()
-        except NoSuchElementException:
-            pass
-        thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
-        driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
-        thumbnails[1].click() # we can change this to a random video, but it may get short videos
+        # driver.get("https://www.youtube.com/")
+        # try:
+        #     cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
+        #     cookies_button.click()
+        # except NoSuchElementException:
+        #     pass
+        # thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
+        # driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
+        # thumbnails[1].click() # we can change this to a random video, but it may get short videos
+
+        # Alternatively, we can set the first video and let the rest be random recommendations
+        driver.get("https://www.youtube.com/watch?v=lheapd7bgLA")
         driver.save_screenshot(f"{dir}/1-loaded_video.png")
 
         for i in range(num_video):
@@ -730,7 +734,7 @@ try:
             test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=20, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_1GB_LINK, timeout=3600)
+            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=3600)
         case _:
             logging.warning("TARGET not set.")
 

@@ -13,8 +13,8 @@ services:
     depends_on:
       chrome:
         condition: service_healthy
-      chrome_uncaptured:
-        condition: service_healthy
+      # chrome_uncaptured:
+      #   condition: service_healthy
 
   chrome:
     build: chrome
@@ -34,20 +34,20 @@ services:
       retries: 5
       start_period: 20s
 
-  chrome_uncaptured:
-    build: chrome
-    command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-2-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
-    ports:
-      - "4445:4444" # for development
-      - "7901:7900" # for novnc
-    volumes:
-      - ./pcap:/pcap
-      - ./chrome_uncaptured_user_data:/user-data
-      - /dev/shm:/dev/shm
-    shm_size: '2gb'
-    healthcheck:
-      test: curl -f http://localhost:4444 || exit 1
-      interval: 10s
-      timeout: 2s
-      retries: 5
-      start_period: 20s
+  # chrome_uncaptured:
+  #   build: chrome
+  #   command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/${TARGET}-chrome-2-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & /opt/bin/entry_point.sh"
+  #   ports:
+  #     - "4445:4444" # for development
+  #     - "7901:7900" # for novnc
+  #   volumes:
+  #     - ./pcap:/pcap
+  #     - ./chrome_uncaptured_user_data:/user-data
+  #     - /dev/shm:/dev/shm
+  #   shm_size: '2gb'
+  #   healthcheck:
+  #     test: curl -f http://localhost:4444 || exit 1
+  #     interval: 10s
+  #     timeout: 2s
+  #     retries: 5
+  #     start_period: 20s
