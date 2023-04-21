@@ -22,6 +22,7 @@ EMAIL_2 = "masque.traffic.test@gmail.com"   # TODO: remove hardcoded email
 GOOGLE_DRIVE_1GB_LINK = "https://drive.google.com/file/d/1jxqVPXaC3_ijbW10Q_iWmGVhW5L39bCk/view?usp=share_link"
 GOOGLE_DRIVE_512MB_LINK = "https://drive.google.com/file/d/1CVl7jyCm_mfYX8qT81Wzlbln1h7ihiiG/view?usp=share_link"
 GOOGLE_DRIVE_256MB_LINK = "https://drive.google.com/file/d/1Zxc9-SA3I9xbyflWe4dYl0eZhAR2zCKx/view?usp=share_link"
+GOOGLE_DRIVE_128MB_LINK = "https://drive.google.com/file/d/1NIaSNzcYzlLiRU5UjTSDfSUFMcsSSvU-/view?usp=share_link"
 GOOGLE_DRIVE_64MB_LINK = "https://drive.google.com/file/d/1f42zBHJIHjnSWIOIQerGBlWlSIlujMRK/view?usp=share_link"
 GOOGLE_DRIVE_16MB_LINK = "https://drive.google.com/file/d/1sWe3IUOr4Oykj3uqUtQ8k4obbLh7SQWM/view?usp=share_link"
 
@@ -45,7 +46,7 @@ def get_chrome_driver(remote_addr):
     chrome_options.add_experimental_option("prefs", {
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
-        # "download.default_directory": r"/tmp",
+        # "download.default_directory": r"/",
         # "safebrowsing_for_trusted_sources_enabled": False, 
         # "safebrowsing.enabled": True, 
     })
@@ -734,7 +735,7 @@ try:
             test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=20, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_512MB_LINK, timeout=3600)
+            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_256MB_LINK, timeout=3600)
         case _:
             logging.warning("TARGET not set.")
 
