@@ -40,6 +40,8 @@ def get_chrome_driver(remote_addr):
     chrome_options = webdriver.ChromeOptions()
     # chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("enable-quic")
+    # We could have added this to enforce QUIC for blogs, but we would like to keep everything natural
+    # chrome_options.add_argument("origin-to-force-quic-on=blog.cloudflare.com:443") 
     chrome_options.add_argument("user-data-dir=/user-data")
     chrome_options.add_argument("use-fake-device-for-media-stream")
     chrome_options.add_argument("use-fake-ui-for-media-stream")
@@ -652,6 +654,47 @@ def test_google_file_download(driver, dir, file_link, timeout=60):
     
     logging.info("google drive download done!")
 
+def test_cloudflare_blog(driver, dir, min_read_time=15, max_read_time=30):
+    Path(dir).mkdir(parents=True, exist_ok=True)
+
+    try:
+        page_num = random.randint(2, 130) # Cloudflare blog currently has >130 pages. The first page has a different layout so skip it
+        driver.get(f"https://blog.cloudflare.com/page/{page_num}/")
+        driver.implicitly_wait(2)
+        
+        articles = driver.find_elements(By.CSS_SELECTOR, "a[href]:has(h2)")
+        driver.save_screenshot(f"{dir}/0-loaded-blog-page.png")
+        try:
+            reject_cookie_button = driver.find_element(By.ID, "onetrust-reject-all-handler")
+            reject_cookie_button.click()
+        except NoSuchElementException:
+            pass
+        random_sequence = list(range(len(articles)))
+        random.shuffle(random_sequence)
+        for i, article_index in enumerate(random_sequence):
+            article = articles[article_index]
+            driver.execute_script("arguments[0].scrollIntoView(false);", article) # pass false to align it at the bottom to avoid being covered by the navigation menu
+            article.click()
+            article_title = driver.find_element(By.CSS_SELECTOR, "h1").text
+            logging.info(f"Viewing {i} of {len(random_sequence)}: {article_title}")
+            driver.save_screenshot(f"{dir}/1-{i}-loaded-article.png")
+            total_article_height = int(driver.execute_script("return document.body.scrollHeight"))
+            read_time = random.randint(min_read_time, max_read_time)
+            logging.info(f"Read for {read_time} seconds.")
+            for j in range(read_time):
+                driver.execute_script(f"window.scrollTo({{top: {int(j / read_time * total_article_height)}, left: 0, behavior: 'smooth'}});")
+                time.sleep(1)
+            driver.back()
+            articles = driver.find_elements(By.CSS_SELECTOR, "a[href]:has(h2)")
+        
+    except Exception as e:
+        logging.exception(e)
+        driver.save_screenshot(f"{dir}/x-exception_thrown.png")
+        logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
+        raise e
+    
+    logging.info("google drive download done!")
+
 def is_docker():
     path = '/proc/self/cgroup'
     return (
@@ -736,6 +779,9 @@ try:
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_256MB_LINK, timeout=3600)
+        case "blog":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            test_cloudflare_blog(driver, f"{os.environ['CAPTURES_DIR']}/cloudflare_blog", min_read_time=15, max_read_time=30)
         case _:
             logging.warning("TARGET not set.")
 
