@@ -22,6 +22,7 @@ EMAIL_2 = "masque.traffic.test@gmail.com"   # TODO: remove hardcoded email
 GOOGLE_DRIVE_1GB_LINK = "https://drive.google.com/file/d/1jxqVPXaC3_ijbW10Q_iWmGVhW5L39bCk/view?usp=share_link"
 GOOGLE_DRIVE_512MB_LINK = "https://drive.google.com/file/d/1CVl7jyCm_mfYX8qT81Wzlbln1h7ihiiG/view?usp=share_link"
 GOOGLE_DRIVE_256MB_LINK = "https://drive.google.com/file/d/1Zxc9-SA3I9xbyflWe4dYl0eZhAR2zCKx/view?usp=share_link"
+GOOGLE_DRIVE_128MB_LINK = "https://drive.google.com/file/d/1NIaSNzcYzlLiRU5UjTSDfSUFMcsSSvU-/view?usp=share_link"
 GOOGLE_DRIVE_64MB_LINK = "https://drive.google.com/file/d/1f42zBHJIHjnSWIOIQerGBlWlSIlujMRK/view?usp=share_link"
 GOOGLE_DRIVE_16MB_LINK = "https://drive.google.com/file/d/1sWe3IUOr4Oykj3uqUtQ8k4obbLh7SQWM/view?usp=share_link"
 
@@ -46,9 +47,10 @@ def get_chrome_driver(remote_addr):
     chrome_options.add_argument("use-fake-ui-for-media-stream")
     chrome_options.add_experimental_option("prefs", {
         "download.prompt_for_download": False,
-        # "download.directory_upgrade": True,
-        "safebrowsing_for_trusted_sources_enabled": False
-        # "safebrowsing.enabled": True
+        "download.directory_upgrade": True,
+        # "download.default_directory": r"/",
+        # "safebrowsing_for_trusted_sources_enabled": False, 
+        # "safebrowsing.enabled": True, 
     })
     driver = webdriver.Remote(
         command_executor=remote_addr,
@@ -110,7 +112,7 @@ def test_google_signin(driver, dir):
 
     return True
 
-def setup_google_hangouts_chat(driver, dir, target_email):
+def setup_google_hangouts(driver, dir, target_email):
     Path(dir).mkdir(parents=True, exist_ok=True)
     driver.get("https://hangouts.google.com/")
 
@@ -128,8 +130,8 @@ def setup_google_hangouts_chat(driver, dir, target_email):
             close_button.click()
         except NoSuchElementException as e:
             logging.debug("element not found: {}".format(e))
-        driver.implicitly_wait(2)            
             
+        driver.implicitly_wait(2)      
         plus_button = driver.find_element(By.XPATH, "//div[@aria-label='Start a chat']")
         driver.save_screenshot("{}/0-loaded.png".format(dir))
         plus_button.click()
@@ -139,14 +141,20 @@ def setup_google_hangouts_chat(driver, dir, target_email):
         addr_input.send_keys(target_email) 
         addr_input.send_keys(Keys.ENTER)
         driver.save_screenshot("{}/1-entered_addr.png".format(dir))
-        start_chat_button = driver.find_element(By.CSS_SELECTOR, "[role=button]")
-        start_chat_button.click()
+        driver.implicitly_wait(0)
+        try:
+            while True:
+                start_chat_button = WebDriverWait(driver, timeout=3).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "[role=button]")))
+                start_chat_button.click()
+        except (NoSuchElementException, TimeoutException) as e:
+            pass
         driver.switch_to.default_content()
     except NoSuchElementException as e:
         logging.warning("element not found")
         logging.exception(e)
         driver.save_screenshot("{}/x-element_not_found.png".format(dir))
         logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+        raise e
 
 def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, max_length=100, min_wait=0.01, max_wait=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
@@ -172,10 +180,11 @@ def test_google_hangouts_chat(driver1, driver2, dir, num_msgs=5, min_length=1, m
             logging.exception(e)
             driver.save_screenshot("{}/x-element_not_found.png".format(dir))
             logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
+            raise e
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        setup_future_1 = executor.submit(setup_google_hangouts_chat, driver1, f"{dir}/setup-1", EMAIL_2)
-        setup_future_2 = executor.submit(setup_google_hangouts_chat, driver2, f"{dir}/setup-2", EMAIL_1)
+        setup_future_1 = executor.submit(setup_google_hangouts, driver1, f"{dir}/setup-1", EMAIL_2)
+        setup_future_2 = executor.submit(setup_google_hangouts, driver2, f"{dir}/setup-2", EMAIL_1)
         setup_future_1.result()
         setup_future_2.result()
         chat_future_1 = executor.submit(send_chat_messages, driver1, f"{dir}/chat-1", num_msgs, min_length, max_length)
@@ -200,15 +209,25 @@ def wait(driver, dir, length):
 # TODO: detect and click "dismiss" or "not now"
 def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     Path(dir).mkdir(parents=True, exist_ok=True)
+    def dismiss_pop_ups(driver, timeout=2):
+        try:
+            # Maybe warnings and notifications will pop up, click the "Got it/Dismiss/Not now" buttons to dismiss them
+            while True:
+                got_it_button = WebDriverWait(driver, timeout=timeout).until(expected_conditions.element_to_be_clickable((By.XPATH, "//button[.='Got it' or .='Dismiss' or .='Not now' or .='No, thanks']")))
+                got_it_button.click()
+        except (NoSuchElementException, TimeoutException) as e:
+            pass
 
     def call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
+            dismiss_pop_ups(driver)
             driver.implicitly_wait(2)
             chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
             driver.switch_to.frame(chat_frame)
             # for some reason, the call button is not present for some Google account
             driver.implicitly_wait(0)
+            dismiss_pop_ups(driver)
             start_call_button = WebDriverWait(driver, timeout=10).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "div[role='button'][aria-label*='Start a video call']:not([aria-disabled='true'])")))
             start_call_button.click()
             
@@ -223,17 +242,22 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
     def accept_call(driver, dir):
         Path(dir).mkdir(parents=True, exist_ok=True)
         try:
-
             try:
+                dismiss_pop_ups(driver)
+                driver.implicitly_wait(15)
+                call_frame = driver.find_element(By.NAME, "pip_frame")
+                driver.switch_to.frame(call_frame)
                 driver.implicitly_wait(0)
                 join_button = WebDriverWait(driver, timeout=15).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "button[aria-label='Answer call']")))
                 join_button.click()
             except TimeoutException:
                 driver.switch_to.default_content()
+                dismiss_pop_ups(driver)
                 driver.implicitly_wait(2)
                 chat_frame = driver.find_element(By.CSS_SELECTOR, google_chat_frame_selector)
                 driver.switch_to.frame(chat_frame)
                 driver.implicitly_wait(0)
+                dismiss_pop_ups(driver)
                 join_button = WebDriverWait(driver, timeout=20).until(expected_conditions.element_to_be_clickable((By.CSS_SELECTOR, "[aria-label='Join']")))
                 join_button.click()
 
@@ -279,8 +303,8 @@ def test_google_hangouts_call(driver1, driver2, dir, call_length=30):
             logging.info(f"screenshot saved: {dir}/x-element_not_found.png")
 
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        setup_future_1 = executor.submit(setup_google_hangouts_chat, driver1, f"{dir}/setup-1", EMAIL_2)
-        setup_future_2 = executor.submit(setup_google_hangouts_chat, driver2, f"{dir}/setup-2", EMAIL_1)
+        setup_future_1 = executor.submit(setup_google_hangouts, driver1, f"{dir}/setup-1", EMAIL_2)
+        setup_future_2 = executor.submit(setup_google_hangouts, driver2, f"{dir}/setup-2", EMAIL_1)
         setup_future_1.result()
         setup_future_2.result()
         if bool(random.getrandbits(1)):
@@ -461,16 +485,19 @@ def skip_or_wait_for_youtube_ads(driver):
 def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_length=60):
     Path(dir).mkdir(parents=True, exist_ok=True)
     try:
-        driver.get("https://www.youtube.com/")
         driver.implicitly_wait(2)
-        try:
-            cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
-            cookies_button.click()
-        except NoSuchElementException:
-            pass
-        thumbnails = driver.find_elements(By.CSS_SELECTOR, "ytd-thumbnail:has(.yt-core-image--loaded)")
-        driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
-        thumbnails[1].click() # we can change this to a random video, but it may get short videos
+        # driver.get("https://www.youtube.com/")
+        # try:
+        #     cookies_button = driver.find_element(By.CSS_SELECTOR, "button[aria-label*='cookies']")
+        #     cookies_button.click()
+        # except NoSuchElementException:
+        #     pass
+        # thumbnails = driver.find_elements(By.CLASS_NAME, "yt-core-image--loaded")
+        # driver.save_screenshot(f"{dir}/0-loaded_youtube_homepage.png")
+        # thumbnails[1].click() # we can change this to a random video, but it may get short videos
+
+        # Alternatively, we can set the first video and let the rest be random recommendations
+        driver.get("https://www.youtube.com/watch?v=lheapd7bgLA")
         driver.save_screenshot(f"{dir}/1-loaded_video.png")
 
         for i in range(num_video):
@@ -484,7 +511,7 @@ def test_youtube_video(driver, dir, num_video=3, min_watch_length=30, max_watch_
             try:
                 current_url = driver.current_url
                 driver.implicitly_wait(0)
-                WebDriverWait(driver, timeout=watch_time).until(lambda driver: driver.current_url != current_url) # wait for next song to autoplay
+                WebDriverWait(driver, timeout=watch_time, poll_frequency=5).until(lambda driver: driver.current_url != current_url) # wait for next song to autoplay
                 logging.info(f"Video {i} finished before timeout.")
             except TimeoutException:
                 logging.info(f"Getting the next video")
@@ -718,6 +745,19 @@ try:
                 test_google_hangouts_chat(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_chat", num_msgs=2, min_wait=0.01, max_wait=3)
                 test_google_hangouts_call(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/hangouts_call", call_length=10)
                 test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=10)
+        case "test_meet":
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+            signed_in = test_google_signin(driver, "{}/google_signin".format(os.environ["CAPTURES_DIR"]))
+            uncaptured_signed_in = test_google_signin(uncaptured_driver, "{}/uncaptured/google_signin".format(os.environ["CAPTURES_DIR"]))
+            if not signed_in or not uncaptured_signed_in:
+                print("Google is not signed in.")
+                print("Set environment variable CHROME_SETUP=true and attach to noVNC at port 7900 or 7901 to set up Google account. Use defualt password \"secret\".")
+                driver.quit()
+                uncaptured_driver.quit()
+                exit(1)
+            else:
+                test_google_meet(driver, uncaptured_driver, f"{os.environ['CAPTURES_DIR']}/google_meet", meet_length=10)
         case "chat":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
@@ -735,10 +775,10 @@ try:
             test_youtube_video(driver, f"{os.environ['CAPTURES_DIR']}/youtube_video", num_video=10, min_watch_length=120, max_watch_length=240) # about 30 mins to finish
         case "music":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=40, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
+            test_youtube_music(driver, f"{os.environ['CAPTURES_DIR']}/youtube_music", num_song=20, min_song_listen_time=5, max_song_listen_time=20, chance_to_next_song=0.3) # about 100 mins to finish
         case "file":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
-            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_1GB_LINK, timeout=3600)
+            test_google_file_download(driver, f"{os.environ['CAPTURES_DIR']}/drive_download", GOOGLE_DRIVE_256MB_LINK, timeout=3600)
         case "blog":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_cloudflare_blog(driver, f"{os.environ['CAPTURES_DIR']}/cloudflare_blog", min_read_time=15, max_read_time=30)
@@ -748,7 +788,9 @@ try:
     if not is_docker():
         time.sleep(300) # for development
 finally:
-    if driver is not None:
-        driver.quit()
-    if uncaptured_driver is not None:
-        uncaptured_driver.quit()
+    try:
+        if driver is not None:
+            driver.quit()
+    finally:
+        if uncaptured_driver is not None:
+            uncaptured_driver.quit()
