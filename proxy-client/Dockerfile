@@ -13,6 +13,7 @@ RUN cargo build
 
 # For route
 RUN apt-get install -y net-tools tcpdump
+RUN apt-get -y install iproute2
 
 COPY configure.sh /
 

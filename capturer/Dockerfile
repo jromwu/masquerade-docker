@@ -9,6 +9,7 @@ RUN apt-get install -y net-tools netcat
 WORKDIR /app
 
 RUN apt-get install -y tcpdump
+RUN apt-get -y install iproute2
 
 COPY configure.sh .
 RUN chmod +x configure.sh

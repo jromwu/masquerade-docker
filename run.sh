@@ -11,7 +11,7 @@ for (( i=0; i<$2; i++ )); do
     if [[ -f "$remove_to_terminate" ]]; then
         echo "Run $(($i + 1)) of $2"
         echo "Run $(($i + 1)) of $2" >> "$output"
-        sudo docker compose build && sudo TARGET="$1" CHROME_SETUP="$CHROME_SETUP" docker compose up --force-recreate --remove-orphans --abort-on-container-exit --exit-code-from=client
+        docker compose build && TARGET="$1" CHROME_SETUP="$CHROME_SETUP" docker compose up --force-recreate --remove-orphans --abort-on-container-exit --exit-code-from=client
         exit_code=$?
         if [ $exit_code -ne 0 ]; then
             echo "docker exited with code ${exit_code}" >> "$output"

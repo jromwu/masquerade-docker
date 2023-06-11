@@ -31,3 +31,6 @@ INTERNET_INTERFACE=eth0
 iptables --table nat --append POSTROUTING --out-interface $INTERNET_INTERFACE -j MASQUERADE
 iptables --append FORWARD --in-interface $SUBNET_INTERFACE -j ACCEPT
 iptables -A FORWARD -i $INTERNET_INTERFACE -o $SUBNET_INTERFACE -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Add latency, jitter, etc. for traffic back
+tc qdisc add dev $SUBNET_INTERFACE root netem delay 80ms 20ms

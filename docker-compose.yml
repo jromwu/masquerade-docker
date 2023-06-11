@@ -60,7 +60,6 @@ services:
     # build: proxy-server
     build: proxy-client
     command: sh -c "echo hello world; RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server.log 2>&1; tail -f /dev/null"
-    # command: sh -c "tcpdump -n -U -w /pcap/proxy-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & echo hello world; RUST_LOG=debug cargo run --bin server -- 172.22.0.11:4433 > /log/server-$(date +%Y-%m-%d-%H-%M-%S).log 2>&1; tail -f /dev/null"
     volumes:
       - ./pcap:/pcap
       - ./log/proxy:/log
@@ -120,7 +119,7 @@ services:
 
   chrome_uncaptured:
     build: chrome
-    command: sh -c "./configure.sh; echo hello world; curl example.com; /opt/bin/entry_point.sh"
+    command: sh -c "./configure.sh; echo hello world; /opt/bin/entry_point.sh"
     # command: sh -c "./configure.sh; echo hello world; sudo tcpdump -n -U -w /pcap/chrome-$(date +%Y-%m-%d-%H-%M-%S).pcap udp & curl example.com; /opt/bin/entry_point.sh"
     ports:
       - "4445:4444" # for development

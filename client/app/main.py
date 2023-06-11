@@ -693,7 +693,7 @@ def test_cloudflare_blog(driver, dir, min_read_time=15, max_read_time=30):
         logging.info(f"screenshot saved: {dir}/x-exception_thrown.png")
         raise e
     
-    logging.info("google drive download done!")
+    logging.info("Cloudflare blog done!")
 
 def is_docker():
     path = '/proc/self/cgroup'
@@ -724,6 +724,10 @@ try:
                 driver.quit()
                 uncaptured_driver.quit()
                 exit(1)
+        case "debug": 
+            driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
+            uncaptured_driver = get_chrome_driver(os.environ["CHROME_UNCAPTURED_DRIVER_ADDR"])
+            time.sleep(1000)
         case "test":
             driver = get_chrome_driver(os.environ["CHROME_DRIVER_ADDR"])
             test_get_quic_cloudflare(driver, "{}/quic-cloudflare/chrome".format(os.environ["CAPTURES_DIR"]))
